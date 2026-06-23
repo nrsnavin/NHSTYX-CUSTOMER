@@ -1,13 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../categories/presentation/category_controller.dart';
 import '../data/product_repository.dart';
 import '../domain/product.dart';
 
-/// Current catalog search query.
+/// Free-text filter typed on the Shop tab's inline search field.
 final productSearchProvider = StateProvider<String>((ref) => '');
 
-/// Product catalog, reactive to [productSearchProvider].
+/// Product catalog, reactive to the selected category and search text.
 final productsProvider = FutureProvider.autoDispose<List<Product>>((ref) async {
   final search = ref.watch(productSearchProvider);
-  return ref.watch(productRepositoryProvider).fetchProducts(search: search);
+  final category = ref.watch(selectedCategoryProvider);
+  return ref.watch(productRepositoryProvider).fetchProducts(
+        search: search.isEmpty ? null : search,
+        categoryId: category?.id,
+      );
 });

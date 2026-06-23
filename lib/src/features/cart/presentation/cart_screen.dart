@@ -50,12 +50,14 @@ class CartScreen extends ConsumerWidget {
       }
     });
 
-    return AsyncValueView<Cart>(
-      value: cartAsync,
-      onRetry: () => ref.invalidate(cartControllerProvider),
-      data: (cart) {
-        if (cart.isEmpty) return const _EmptyCart();
-        return Column(
+    return Scaffold(
+      appBar: AppBar(title: const Text('Cart')),
+      body: AsyncValueView<Cart>(
+        value: cartAsync,
+        onRetry: () => ref.invalidate(cartControllerProvider),
+        data: (cart) {
+          if (cart.isEmpty) return const _EmptyCart();
+          return Column(
           children: [
             Expanded(
               child: ListView.separated(
@@ -94,7 +96,8 @@ class CartScreen extends ConsumerWidget {
             _CheckoutPanel(subtotalPaise: cart.subtotalPaise),
           ],
         );
-      },
+        },
+      ),
     );
   }
 }

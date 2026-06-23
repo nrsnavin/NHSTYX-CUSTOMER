@@ -26,6 +26,7 @@ class Product {
     required this.moqQty,
     required this.stockQty,
     this.brand,
+    this.description,
     this.hsnCode,
     this.mrpPaise,
     this.imageUrl,
@@ -41,6 +42,7 @@ class Product {
   final int moqQty;
   final int stockQty;
   final String? brand;
+  final String? description;
   final String? hsnCode;
   final int? mrpPaise;
   final String? imageUrl;
@@ -58,6 +60,19 @@ class Product {
     return lowest;
   }
 
+  /// Resolves the per-unit price for a quantity (highest applicable tier wins).
+  int unitPricePaiseFor(int quantity) {
+    var price = pricePaise;
+    var bestMinQty = 0;
+    for (final tier in priceTiers) {
+      if (quantity >= tier.minQty && tier.minQty >= bestMinQty) {
+        price = tier.pricePaise;
+        bestMinQty = tier.minQty;
+      }
+    }
+    return price;
+  }
+
   factory Product.fromJson(Map<String, dynamic> json) {
     final category = json['category'] as Map<String, dynamic>?;
     return Product(
@@ -69,6 +84,7 @@ class Product {
       moqQty: json['moqQty'] == null ? 1 : _toInt(json['moqQty']),
       stockQty: _toInt(json['stockQty']),
       brand: json['brand'] as String?,
+      description: json['description'] as String?,
       hsnCode: json['hsnCode'] as String?,
       mrpPaise: json['mrpPaise'] == null ? null : _toInt(json['mrpPaise']),
       imageUrl: json['imageUrl'] as String?,

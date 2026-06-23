@@ -2,6 +2,8 @@
 
 The Flutter mobile app for **garment store & boutique owners** to browse the wholesale catalog, build a cart, and place orders — everything their store needs in one place.
 
+**Design:** minimal, modern, monochrome storefront — a 2-column product grid, category rail, product detail pages, and **AI-powered natural-language search** (“cotton kurtis under ₹300”).
+
 **Stack:** Flutter · Riverpod (state) · go_router (navigation) · Dio (HTTP) · flutter_secure_storage (tokens).
 
 ---
@@ -56,15 +58,23 @@ lib/
     │   └── theme/app_theme.dart    # Material 3 theme
     ├── features/
     │   ├── auth/                    # phone login, register, session controller
-    │   ├── products/               # catalog browse + search (paise, tiers)
+    │   ├── products/               # grid storefront, product detail (paise, tiers)
+    │   ├── categories/             # category tree + rail filter
+    │   ├── search/                 # AI natural-language search
     │   ├── cart/                    # server-side cart + checkout panel
     │   ├── addresses/              # delivery addresses (+ add screen)
     │   ├── orders/                  # GST checkout + order history
-    │   └── home/                    # bottom-nav shell + profile
+    │   ├── profile/                # account + sign out
+    │   └── home/                    # bottom-nav shell (Shop·Cart·Orders·Profile)
     └── shared/                      # formatters (paise→₹), reusable widgets
 test/
 ├── domain_test.dart                # product/cart parsing + money formatting
+├── shop_screen_test.dart           # storefront renders (search/rail/grid)
 └── widget_test.dart                # login screen smoke test
+
+> **AI search** calls the backend `POST /search/ai`, which uses Claude to
+> parse the query when an `ANTHROPIC_API_KEY` is configured (keyword fallback
+> otherwise). The Shop tab's search bar opens this experience.
 ```
 
 ### State management (Riverpod)

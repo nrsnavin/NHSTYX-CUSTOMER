@@ -14,23 +14,45 @@ class OrdersScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ordersAsync = ref.watch(ordersProvider);
 
-    return AsyncValueView<List<Order>>(
-      value: ordersAsync,
-      onRetry: () => ref.invalidate(ordersProvider),
-      data: (orders) {
-        if (orders.isEmpty) {
-          return const Center(child: Text('No orders yet.'));
-        }
-        return RefreshIndicator(
-          onRefresh: () async => ref.invalidate(ordersProvider),
-          child: ListView.separated(
-            padding: const EdgeInsets.all(12),
-            itemCount: orders.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, index) => _OrderCard(order: orders[index]),
-          ),
-        );
-      },
+    return Scaffold(
+      appBar: AppBar(title: const Text('Orders')),
+      body: AsyncValueView<List<Order>>(
+        value: ordersAsync,
+        onRetry: () => ref.invalidate(ordersProvider),
+        data: (orders) {
+          if (orders.isEmpty) {
+            return const _NoOrders();
+          }
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(ordersProvider),
+            child: ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: orders.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) => _OrderCard(order: orders[index]),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _NoOrders extends StatelessWidget {
+  const _NoOrders();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.receipt_long_outlined, size: 48, color: theme.colorScheme.outline),
+          const SizedBox(height: 12),
+          Text('No orders yet', style: theme.textTheme.titleMedium),
+        ],
+      ),
     );
   }
 }

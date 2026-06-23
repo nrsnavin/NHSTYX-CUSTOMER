@@ -10,7 +10,12 @@ class ProductRepository {
 
   final Dio _dio;
 
-  Future<List<Product>> fetchProducts({String? search, int page = 1, int limit = 20}) async {
+  Future<List<Product>> fetchProducts({
+    String? search,
+    String? categoryId,
+    int page = 1,
+    int limit = 40,
+  }) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '/products',
@@ -18,6 +23,7 @@ class ProductRepository {
           'page': page,
           'limit': limit,
           if (search != null && search.isNotEmpty) 'search': search,
+          if (categoryId != null) 'categoryId': categoryId,
         },
       );
       final items = response.data!['items'] as List<dynamic>;
