@@ -1,29 +1,30 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../cart/domain/cart_item.dart';
 import '../../cart/presentation/cart_controller.dart';
 import '../data/order_repository.dart';
 import '../domain/order.dart';
 
 /// The signed-in customer's order history.
-final ordersProvider = FutureProvider.autoDispose<List<Order>>((ref) async {
+final ordersProvider = FutureProvider.autoDispose<List<Order>>((ref) {
   return ref.watch(orderRepositoryProvider).fetchOrders();
 });
 
-/// Handles checkout: posts the cart, clears it, and refreshes order history.
+/// Handles checkout: posts the order, then refreshes cart + order history.
 class CheckoutController extends AutoDisposeAsyncNotifier<Order?> {
   @override
   Future<Order?> build() async => null;
 
-  Future<Order?> placeOrder({String? notes}) async {
-    final cart = ref.read(cartControllerProvider);
-    if (cart.isEmpty) return null;
-
+  Future<Order?> placeOrder({
+    required String addressId,
+    required String paymentMethod,
+  }) async {
     state = const AsyncLoading();
     final result = await AsyncValue.guard<Order?>(() async {
-      final List<CartItem> items = List.of(cart);
-      final order = await ref.read(orderRepositoryProvider).placeOrder(items, notes: notes);
-      ref.read(cartControllerProvider.notifier).clear();
+      final order = await ref.read(orderRepositoryProvider).placeOrder(
+            addressId: addressId,
+            paymentMethod: paymentMethod,
+          );
+      ref.invalidate(cartControllerProvider);
       ref.invalidate(ordersProvider);
       return order;
     });

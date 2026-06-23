@@ -25,17 +25,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final cartCount = ref.watch(cartCountProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_titles[_index]),
-        actions: [
-          if (_index == 3)
-            IconButton(
-              icon: const Icon(Icons.logout),
-              tooltip: 'Sign out',
-              onPressed: () => ref.read(authControllerProvider.notifier).logout(),
-            ),
-        ],
-      ),
+      appBar: AppBar(title: Text(_titles[_index])),
       body: IndexedStack(
         index: _index,
         children: const [
@@ -84,8 +74,8 @@ class _ProfileTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(authControllerProvider).valueOrNull;
-    if (user == null) {
+    final customer = ref.watch(authControllerProvider).valueOrNull;
+    if (customer == null) {
       return const Center(child: CircularProgressIndicator());
     }
     return ListView(
@@ -95,7 +85,7 @@ class _ProfileTab extends ConsumerWidget {
           child: CircleAvatar(
             radius: 40,
             child: Text(
-              user.fullName.isNotEmpty ? user.fullName[0].toUpperCase() : '?',
+              customer.shopName.isNotEmpty ? customer.shopName[0].toUpperCase() : '?',
               style: const TextStyle(fontSize: 32),
             ),
           ),
@@ -106,19 +96,32 @@ class _ProfileTab extends ConsumerWidget {
             children: [
               ListTile(
                 leading: const Icon(Icons.storefront_outlined),
-                title: const Text('Business'),
-                subtitle: Text(user.businessName ?? '—'),
+                title: const Text('Shop'),
+                subtitle: Text(customer.shopName),
               ),
+              if (customer.ownerName != null)
+                ListTile(
+                  leading: const Icon(Icons.person_outline),
+                  title: const Text('Owner'),
+                  subtitle: Text(customer.ownerName!),
+                ),
               ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: const Text('Name'),
-                subtitle: Text(user.fullName),
+                leading: const Icon(Icons.phone_outlined),
+                title: const Text('Phone'),
+                subtitle: Text('+91 ${customer.phone}'),
               ),
-              ListTile(
-                leading: const Icon(Icons.mail_outline),
-                title: const Text('Email'),
-                subtitle: Text(user.email),
-              ),
+              if (customer.email != null)
+                ListTile(
+                  leading: const Icon(Icons.mail_outline),
+                  title: const Text('Email'),
+                  subtitle: Text(customer.email!),
+                ),
+              if (customer.gstin != null)
+                ListTile(
+                  leading: const Icon(Icons.receipt_long_outlined),
+                  title: const Text('GSTIN'),
+                  subtitle: Text(customer.gstin!),
+                ),
             ],
           ),
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'auth_controller.dart';
@@ -12,18 +13,20 @@ class RegisterScreen extends ConsumerStatefulWidget {
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _fullName = TextEditingController();
-  final _businessName = TextEditingController();
-  final _email = TextEditingController();
+  final _shopName = TextEditingController();
+  final _ownerName = TextEditingController();
   final _phone = TextEditingController();
+  final _email = TextEditingController();
+  final _gstin = TextEditingController();
   final _password = TextEditingController();
 
   @override
   void dispose() {
-    _fullName.dispose();
-    _businessName.dispose();
-    _email.dispose();
+    _shopName.dispose();
+    _ownerName.dispose();
     _phone.dispose();
+    _email.dispose();
+    _gstin.dispose();
     _password.dispose();
     super.dispose();
   }
@@ -31,18 +34,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     await ref.read(authControllerProvider.notifier).register(
-          email: _email.text.trim(),
-          password: _password.text,
-          fullName: _fullName.text.trim(),
-          businessName: _businessName.text.trim(),
+          shopName: _shopName.text.trim(),
           phone: _phone.text.trim(),
+          password: _password.text,
+          ownerName: _ownerName.text.trim(),
+          email: _email.text.trim(),
+          gstin: _gstin.text.trim(),
         );
   }
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authControllerProvider);
-    final isLoading = authState.isLoading;
+    final isLoading = ref.watch(authControllerProvider).isLoading;
 
     ref.listen(authControllerProvider, (_, next) {
       if (next.hasError && !next.isLoading) {
@@ -63,7 +66,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 TextFormField(
-                  controller: _businessName,
+                  controller: _shopName,
                   decoration: const InputDecoration(
                     labelText: 'Business / Store name',
                     prefixIcon: Icon(Icons.storefront_outlined),
@@ -73,33 +76,49 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
-                  controller: _fullName,
+                  controller: _ownerName,
                   decoration: const InputDecoration(
-                    labelText: 'Your name',
+                    labelText: 'Owner name (optional)',
                     prefixIcon: Icon(Icons.person_outline),
                   ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _phone,
+                  keyboardType: TextInputType.phone,
+                  maxLength: 10,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: 'Phone',
+                    prefixText: '+91 ',
+                    counterText: '',
+                    prefixIcon: Icon(Icons.phone_outlined),
+                  ),
                   validator: (v) =>
-                      (v == null || v.trim().length < 2) ? 'Enter your name' : null,
+                      (v == null || v.length != 10) ? 'Enter a 10-digit phone number' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    labelText: 'Email',
+                    labelText: 'Email (optional)',
                     prefixIcon: Icon(Icons.mail_outline),
                   ),
-                  validator: (v) =>
-                      (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
-                  controller: _phone,
-                  keyboardType: TextInputType.phone,
+                  controller: _gstin,
+                  textCapitalization: TextCapitalization.characters,
+                  maxLength: 15,
                   decoration: const InputDecoration(
-                    labelText: 'Phone (optional)',
-                    prefixIcon: Icon(Icons.phone_outlined),
+                    labelText: 'GSTIN (optional)',
+                    counterText: '',
+                    prefixIcon: Icon(Icons.receipt_long_outlined),
                   ),
+                  validator: (v) => (v != null && v.isNotEmpty && v.trim().length != 15)
+                      ? 'GSTIN must be 15 characters'
+                      : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -109,8 +128,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     labelText: 'Password',
                     prefixIcon: Icon(Icons.lock_outline),
                   ),
-                  validator: (v) =>
-                      (v == null || v.length < 8) ? 'At least 8 characters' : null,
+                  validator: (v) => (v == null || v.length < 8) ? 'At least 8 characters' : null,
                 ),
                 const SizedBox(height: 24),
                 FilledButton(

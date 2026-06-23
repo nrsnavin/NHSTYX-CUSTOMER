@@ -1,85 +1,80 @@
-double _toDouble(dynamic value) {
-  if (value is num) return value.toDouble();
-  if (value is String) return double.tryParse(value) ?? 0;
+int _toInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value) ?? 0;
   return 0;
 }
 
-class ProductVariant {
-  const ProductVariant({
-    required this.id,
-    required this.sku,
-    required this.price,
-    required this.minOrderQty,
-    required this.stockQuantity,
-    this.size,
-    this.color,
-    this.mrp,
-  });
+class PriceTier {
+  const PriceTier({required this.minQty, required this.pricePaise});
 
-  final String id;
-  final String sku;
-  final double price;
-  final double? mrp;
-  final int minOrderQty;
-  final int stockQuantity;
-  final String? size;
-  final String? color;
+  final int minQty;
+  final int pricePaise;
 
-  bool get inStock => stockQuantity > 0;
-
-  String get label {
-    final parts = [size, color].where((e) => e != null && e.isNotEmpty).toList();
-    return parts.isEmpty ? sku : parts.join(' / ');
-  }
-
-  factory ProductVariant.fromJson(Map<String, dynamic> json) {
-    return ProductVariant(
-      id: json['id'] as String,
-      sku: json['sku'] as String,
-      price: _toDouble(json['price']),
-      mrp: json['mrp'] == null ? null : _toDouble(json['mrp']),
-      minOrderQty: (json['minOrderQty'] ?? 1) as int,
-      stockQuantity: (json['stockQuantity'] ?? 0) as int,
-      size: json['size'] as String?,
-      color: json['color'] as String?,
-    );
-  }
+  factory PriceTier.fromJson(Map<String, dynamic> json) =>
+      PriceTier(minQty: _toInt(json['minQty']), pricePaise: _toInt(json['pricePaise']));
 }
 
+/// A flat catalog product priced in integer paise, GST-exclusive.
 class Product {
   const Product({
     required this.id,
     required this.name,
-    required this.variants,
+    required this.unit,
+    required this.pricePaise,
+    required this.gstRatePercent,
+    required this.moqQty,
+    required this.stockQty,
     this.brand,
+    this.hsnCode,
+    this.mrpPaise,
+    this.imageUrl,
     this.categoryName,
-    this.imageUrls = const [],
+    this.priceTiers = const [],
   });
 
   final String id;
   final String name;
+  final String unit;
+  final int pricePaise;
+  final int gstRatePercent;
+  final int moqQty;
+  final int stockQty;
   final String? brand;
+  final String? hsnCode;
+  final int? mrpPaise;
+  final String? imageUrl;
   final String? categoryName;
-  final List<String> imageUrls;
-  final List<ProductVariant> variants;
+  final List<PriceTier> priceTiers;
 
-  double get fromPrice => variants.isEmpty
-      ? 0
-      : variants.map((v) => v.price).reduce((a, b) => a < b ? a : b);
+  bool get inStock => stockQty > 0;
 
-  ProductVariant? get defaultVariant => variants.isEmpty ? null : variants.first;
+  /// Lowest advertised per-unit price across base + tiers.
+  int get fromPricePaise {
+    var lowest = pricePaise;
+    for (final tier in priceTiers) {
+      if (tier.pricePaise < lowest) lowest = tier.pricePaise;
+    }
+    return lowest;
+  }
 
   factory Product.fromJson(Map<String, dynamic> json) {
     final category = json['category'] as Map<String, dynamic>?;
     return Product(
       id: json['id'] as String,
       name: json['name'] as String,
+      unit: (json['unit'] ?? 'PIECE') as String,
+      pricePaise: _toInt(json['pricePaise']),
+      gstRatePercent: _toInt(json['gstRatePercent']),
+      moqQty: json['moqQty'] == null ? 1 : _toInt(json['moqQty']),
+      stockQty: _toInt(json['stockQty']),
       brand: json['brand'] as String?,
+      hsnCode: json['hsnCode'] as String?,
+      mrpPaise: json['mrpPaise'] == null ? null : _toInt(json['mrpPaise']),
+      imageUrl: json['imageUrl'] as String?,
       categoryName: category?['name'] as String?,
-      imageUrls:
-          (json['imageUrls'] as List<dynamic>?)?.map((e) => e as String).toList() ?? const [],
-      variants: (json['variants'] as List<dynamic>? ?? [])
-          .map((e) => ProductVariant.fromJson(e as Map<String, dynamic>))
+      priceTiers: (json['priceTiers'] as List<dynamic>? ?? [])
+          .map((e) => PriceTier.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }

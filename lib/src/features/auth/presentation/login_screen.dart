@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -13,23 +14,20 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _email = TextEditingController(text: 'customer@nhstyx.com');
+  final _phone = TextEditingController(text: '9876543210');
   final _password = TextEditingController();
   bool _obscure = true;
 
   @override
   void dispose() {
-    _email.dispose();
+    _phone.dispose();
     _password.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    await ref.read(authControllerProvider.notifier).login(
-          _email.text.trim(),
-          _password.text,
-        );
+    await ref.read(authControllerProvider.notifier).login(_phone.text.trim(), _password.text);
   }
 
   @override
@@ -37,14 +35,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final authState = ref.watch(authControllerProvider);
     final isLoading = authState.isLoading;
 
-    // Surface auth errors as a snackbar.
     ref.listen(authControllerProvider, (_, next) {
       if (next.hasError && !next.isLoading) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(content: Text(next.error.toString())),
-          );
+          ..showSnackBar(SnackBar(content: Text(next.error.toString())));
       }
     });
 
@@ -70,9 +65,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Text(
                       'NH Styx',
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -82,14 +78,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 32),
                     TextFormField(
-                      controller: _email,
-                      keyboardType: TextInputType.emailAddress,
+                      controller: _phone,
+                      keyboardType: TextInputType.phone,
+                      maxLength: 10,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.mail_outline),
+                        labelText: 'Phone',
+                        prefixText: '+91 ',
+                        counterText: '',
+                        prefixIcon: Icon(Icons.phone_outlined),
                       ),
                       validator: (v) =>
-                          (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+                          (v == null || v.length != 10) ? 'Enter a 10-digit phone number' : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -103,8 +103,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           onPressed: () => setState(() => _obscure = !_obscure),
                         ),
                       ),
-                      validator: (v) =>
-                          (v == null || v.isEmpty) ? 'Enter your password' : null,
+                      validator: (v) => (v == null || v.isEmpty) ? 'Enter your password' : null,
                     ),
                     const SizedBox(height: 24),
                     FilledButton(

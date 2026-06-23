@@ -27,13 +27,15 @@ flutter run
 flutter run --dart-define=API_BASE_URL=http://localhost:4000/api/v1
 ```
 
-Sign in with the seeded customer account:
+Sign in with the seeded customer account (**phone + password**):
 
-| Email                | Password       |
-|----------------------|----------------|
-| customer@nhstyx.com  | `Customer@123` |
+| Phone        | Password       |
+|--------------|----------------|
+| `9876543210` | `Customer@123` |
 
 > Or tap **Register your store** to create a new boutique account.
+> Prices are shown in ₹ (the API uses integer paise); GST is computed at
+> checkout from your delivery state. The cart lives server-side.
 
 ---
 
@@ -53,22 +55,25 @@ lib/
     │   ├── storage/token_storage.dart  # secure token storage
     │   └── theme/app_theme.dart    # Material 3 theme
     ├── features/
-    │   ├── auth/                    # login, register, session controller
-    │   ├── products/               # catalog browse + search
-    │   ├── cart/                    # local cart + quantity logic
-    │   ├── orders/                  # checkout + order history
+    │   ├── auth/                    # phone login, register, session controller
+    │   ├── products/               # catalog browse + search (paise, tiers)
+    │   ├── cart/                    # server-side cart + checkout panel
+    │   ├── addresses/              # delivery addresses (+ add screen)
+    │   ├── orders/                  # GST checkout + order history
     │   └── home/                    # bottom-nav shell + profile
-    └── shared/                      # formatters, reusable widgets
+    └── shared/                      # formatters (paise→₹), reusable widgets
 test/
-└── cart_controller_test.dart       # cart logic unit tests
+├── domain_test.dart                # product/cart parsing + money formatting
+└── widget_test.dart                # login screen smoke test
 ```
 
 ### State management (Riverpod)
-- `authControllerProvider` — `AsyncNotifier<User?>`; restores the session on
-  launch, exposes `login` / `register` / `logout`.
+- `authControllerProvider` — `AsyncNotifier<Customer?>`; restores the session on
+  launch, exposes `login(phone, password)` / `register` / `logout`.
 - `productsProvider` — `FutureProvider`, reactive to `productSearchProvider`.
-- `cartControllerProvider` — `Notifier<List<CartItem>>` with derived
-  `cartCountProvider` / `cartSubtotalProvider`.
+- `cartControllerProvider` — `AsyncNotifier<Cart>` backed by the server cart,
+  with a derived `cartCountProvider` for the nav badge.
+- `addressesProvider` / `defaultAddressProvider` — delivery addresses.
 - `checkoutControllerProvider` / `ordersProvider` — place orders & list history.
 
 ### Networking

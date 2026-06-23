@@ -2,16 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/storage/token_storage.dart';
 import '../data/auth_repository.dart';
-import '../domain/user.dart';
+import '../domain/customer.dart';
 
-/// Holds the current authentication state as an [AsyncValue<User?>].
-/// `null` data means "not signed in".
-class AuthController extends AsyncNotifier<User?> {
+/// Current authentication state as [AsyncValue<Customer?>]; null = signed out.
+class AuthController extends AsyncNotifier<Customer?> {
   AuthRepository get _repo => ref.read(authRepositoryProvider);
   TokenStorage get _storage => ref.read(tokenStorageProvider);
 
   @override
-  Future<User?> build() async {
+  Future<Customer?> build() async {
     final token = await _storage.readAccessToken();
     if (token == null) return null;
     try {
@@ -22,56 +21,50 @@ class AuthController extends AsyncNotifier<User?> {
     }
   }
 
-  Future<void> login(String email, String password) async {
+  Future<void> login(String phone, String password) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      final result = await _repo.login(email, password);
+      final result = await _repo.login(phone, password);
       await _storage.saveTokens(
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
       );
-      return result.user;
+      return result.customer;
     });
   }
 
   Future<void> register({
-    required String email,
+    required String shopName,
+    required String phone,
     required String password,
-    required String fullName,
-    required String businessName,
-    String? phone,
+    String? ownerName,
+    String? email,
+    String? gstin,
   }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final result = await _repo.register(
-        email: email,
-        password: password,
-        fullName: fullName,
-        businessName: businessName,
+        shopName: shopName,
         phone: phone,
+        password: password,
+        ownerName: ownerName,
+        email: email,
+        gstin: gstin,
       );
       await _storage.saveTokens(
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
       );
-      return result.user;
+      return result.customer;
     });
   }
 
   Future<void> logout() async {
-    final refreshToken = await _storage.readRefreshToken();
-    if (refreshToken != null) {
-      await _repo.logout(refreshToken);
-    }
+    await _repo.logout();
     await _storage.clear();
     state = const AsyncData(null);
   }
 }
 
 final authControllerProvider =
-    AsyncNotifierProvider<AuthController, User?>(AuthController.new);
-
-/// Convenience: true when a user is signed in.
-final isAuthenticatedProvider = Provider<bool>((ref) {
-  return ref.watch(authControllerProvider).valueOrNull != null;
-});
+    AsyncNotifierProvider<AuthController, Customer?>(AuthController.new);

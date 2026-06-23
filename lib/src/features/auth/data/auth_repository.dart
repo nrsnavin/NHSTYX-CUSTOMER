@@ -3,18 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/dio_client.dart';
-import '../domain/user.dart';
+import '../domain/customer.dart';
 
 class AuthRepository {
   AuthRepository(this._dio);
 
   final Dio _dio;
 
-  Future<AuthResult> login(String email, String password) async {
+  Future<AuthResult> login(String phone, String password) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
-        '/auth/login',
-        data: {'email': email, 'password': password},
+        '/auth/customer/login',
+        data: {'phone': phone, 'password': password},
       );
       return AuthResult.fromJson(response.data!['data'] as Map<String, dynamic>);
     } on DioException catch (e) {
@@ -23,21 +23,23 @@ class AuthRepository {
   }
 
   Future<AuthResult> register({
-    required String email,
+    required String shopName,
+    required String phone,
     required String password,
-    required String fullName,
-    required String businessName,
-    String? phone,
+    String? ownerName,
+    String? email,
+    String? gstin,
   }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
-        '/auth/register',
+        '/auth/customer/register',
         data: {
-          'email': email,
+          'shopName': shopName,
+          'phone': phone,
           'password': password,
-          'fullName': fullName,
-          'businessName': businessName,
-          if (phone != null && phone.isNotEmpty) 'phone': phone,
+          if (ownerName != null && ownerName.isNotEmpty) 'ownerName': ownerName,
+          if (email != null && email.isNotEmpty) 'email': email,
+          if (gstin != null && gstin.isNotEmpty) 'gstin': gstin,
         },
       );
       return AuthResult.fromJson(response.data!['data'] as Map<String, dynamic>);
@@ -46,18 +48,18 @@ class AuthRepository {
     }
   }
 
-  Future<User> me() async {
+  Future<Customer> me() async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>('/auth/me');
-      return User.fromJson(response.data!['data'] as Map<String, dynamic>);
+      final response = await _dio.get<Map<String, dynamic>>('/auth/customer/me');
+      return Customer.fromJson(response.data!['data'] as Map<String, dynamic>);
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }
   }
 
-  Future<void> logout(String refreshToken) async {
+  Future<void> logout() async {
     try {
-      await _dio.post<void>('/auth/logout', data: {'refreshToken': refreshToken});
+      await _dio.post<void>('/auth/logout');
     } on DioException {
       // Best-effort; ignore network errors on logout.
     }

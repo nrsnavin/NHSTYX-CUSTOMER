@@ -55,10 +55,28 @@ class _ProductCard extends ConsumerWidget {
 
   final Product product;
 
+  Future<void> _addToCart(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      // B2B: add a minimum-order-quantity pack by default.
+      await ref.read(cartControllerProvider.notifier).add(product.id, product.moqQty);
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text('Added ${product.name} to cart'),
+          duration: const Duration(seconds: 1),
+        ));
+    } catch (e) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final variant = product.defaultVariant;
     final theme = Theme.of(context);
+    final hasTiers = product.priceTiers.isNotEmpty;
 
     return Card(
       child: Padding(
@@ -89,32 +107,20 @@ class _ProductCard extends ConsumerWidget {
                     Text(product.categoryName!, style: theme.textTheme.bodySmall),
                   const SizedBox(height: 4),
                   Text(
-                    'From ${formatCurrency(product.fromPrice)}',
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(color: theme.colorScheme.primary),
+                    '${hasTiers ? 'From ' : ''}${formatPaise(product.fromPricePaise)} / ${product.unit.toLowerCase()}',
+                    style:
+                        theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary),
                   ),
-                  if (variant != null)
-                    Text(
-                      'MOQ ${variant.minOrderQty} · ${variant.inStock ? '${variant.stockQuantity} in stock' : 'Out of stock'}',
-                      style: theme.textTheme.bodySmall,
-                    ),
+                  Text(
+                    'MOQ ${product.moqQty} · GST ${product.gstRatePercent}% · '
+                    '${product.inStock ? '${product.stockQty} in stock' : 'Out of stock'}',
+                    style: theme.textTheme.bodySmall,
+                  ),
                 ],
               ),
             ),
             FilledButton.tonalIcon(
-              onPressed: (variant == null || !variant.inStock)
-                  ? null
-                  : () {
-                      ref.read(cartControllerProvider.notifier).add(product, variant);
-                      ScaffoldMessenger.of(context)
-                        ..hideCurrentSnackBar()
-                        ..showSnackBar(
-                          SnackBar(
-                            content: Text('Added ${product.name} to cart'),
-                            duration: const Duration(seconds: 1),
-                          ),
-                        );
-                    },
+              onPressed: product.inStock ? () => _addToCart(context, ref) : null,
               icon: const Icon(Icons.add_shopping_cart, size: 18),
               label: const Text('Add'),
             ),

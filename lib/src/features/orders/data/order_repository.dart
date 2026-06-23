@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/dio_client.dart';
-import '../../cart/domain/cart_item.dart';
 import '../domain/order.dart';
 
 class OrderRepository {
@@ -11,15 +10,18 @@ class OrderRepository {
 
   final Dio _dio;
 
-  Future<Order> placeOrder(List<CartItem> items, {String? notes}) async {
+  Future<Order> placeOrder({
+    required String addressId,
+    required String paymentMethod,
+    String? notes,
+  }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/orders',
         data: {
+          'addressId': addressId,
+          'paymentMethod': paymentMethod,
           if (notes != null && notes.isNotEmpty) 'notes': notes,
-          'items': items
-              .map((item) => {'variantId': item.variant.id, 'quantity': item.quantity})
-              .toList(),
         },
       );
       return Order.fromJson(response.data!['data'] as Map<String, dynamic>);
