@@ -14,6 +14,7 @@ import 'cart_controller.dart';
 final selectedPaymentProvider = StateProvider.autoDispose<String>((ref) => 'COD');
 
 const _paymentLabels = {
+  'RAZORPAY': 'UPI / Card / Netbanking',
   'COD': 'Cash on Delivery',
   'CREDIT': 'Credit (Pay Later)',
   'BANK_TRANSFER': 'Bank Transfer',
@@ -60,44 +61,44 @@ class CartScreen extends ConsumerWidget {
         data: (cart) {
           if (cart.isEmpty) return const _EmptyCart();
           return Column(
-          children: [
-            Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.all(12),
-                itemCount: cart.items.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final item = cart.items[index];
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(item.name),
-                    subtitle: Text(
-                      '${formatPaise(item.unitPricePaise)} / ${item.unit.toLowerCase()} · '
-                      '${formatPaise(item.lineSubtotalPaise)}',
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle_outline),
-                          onPressed: () =>
-                              _changeQty(context, ref, item.productId, item.quantity - 1),
-                        ),
-                        Text('${item.quantity}'),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline),
-                          onPressed: () =>
-                              _changeQty(context, ref, item.productId, item.quantity + 1),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+            children: [
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: cart.items.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final item = cart.items[index];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(item.name),
+                      subtitle: Text(
+                        '${formatPaise(item.unitPricePaise)} / ${item.unit.toLowerCase()} · '
+                            '${formatPaise(item.lineSubtotalPaise)}',
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline),
+                            onPressed: () =>
+                                _changeQty(context, ref, item.productId, item.quantity - 1),
+                          ),
+                          Text('${item.quantity}'),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline),
+                            onPressed: () =>
+                                _changeQty(context, ref, item.productId, item.quantity + 1),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-            _CheckoutPanel(subtotalPaise: cart.subtotalPaise),
-          ],
-        );
+              _CheckoutPanel(subtotalPaise: cart.subtotalPaise),
+            ],
+          );
         },
       ),
     );
@@ -147,11 +148,11 @@ class _CheckoutPanel extends ConsumerWidget {
                 spacing: 8,
                 children: _paymentLabels.entries
                     .map((e) => ChoiceChip(
-                          label: Text(e.value),
-                          selected: method == e.key,
-                          onSelected: (_) =>
-                              ref.read(selectedPaymentProvider.notifier).state = e.key,
-                        ))
+                  label: Text(e.value),
+                  selected: method == e.key,
+                  onSelected: (_) =>
+                  ref.read(selectedPaymentProvider.notifier).state = e.key,
+                ))
                     .toList(),
               ),
               const SizedBox(height: 12),
@@ -172,15 +173,15 @@ class _CheckoutPanel extends ConsumerWidget {
                 onPressed: (address == null || checkout.isLoading)
                     ? null
                     : () => ref.read(checkoutControllerProvider.notifier).placeOrder(
-                          addressId: address.id,
-                          paymentMethod: method,
-                        ),
+                  addressId: address.id,
+                  paymentMethod: method,
+                ),
                 child: checkout.isLoading
                     ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
                     : Text('Place order · ${_paymentLabels[method]}'),
               ),
             ],
