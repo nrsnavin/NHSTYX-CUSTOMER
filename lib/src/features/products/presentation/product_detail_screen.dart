@@ -177,7 +177,7 @@ class _TierTable extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      color: active ? theme.colorScheme.surfaceContainerHighest : null,
+      color: active ? theme.colorScheme.secondaryContainer : null,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

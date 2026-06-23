@@ -1,26 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Minimal, modern, monochrome theme — near-black on white, hairline borders,
-/// generous spacing, flat surfaces. Inspired by clean retail storefronts.
+/// Modern retail theme — royal blue primary with a muted-yellow accent,
+/// on clean white surfaces with hairline borders and generous spacing.
 class AppTheme {
   const AppTheme._();
 
-  static const Color ink = Color(0xFF0A0A0A); // near-black primary
-  static const Color subtle = Color(0xFF6B7280); // grey-500 secondary text
-  static const Color line = Color(0xFFE5E7EB); // hairline border
-  static const Color surfaceMuted = Color(0xFFF4F4F5); // chip / placeholder bg
+  static const Color brandBlue = Color(0xFF00539C); // royal blue — primary
+  static const Color accentYellow = Color(0xFFFFD662); // muted yellow — accent
+  static const Color ink = Color(0xFF14213D); // dark navy text
+  static const Color subtle = Color(0xFF64748B); // blue-grey secondary text
+  static const Color line = Color(0xFFE3E8EF); // hairline border
+  static const Color surfaceMuted = Color(0xFFEEF2F8); // chip / placeholder bg
 
   static ThemeData get light {
     const scheme = ColorScheme.light(
-      primary: ink,
+      primary: brandBlue,
       onPrimary: Colors.white,
-      secondary: ink,
-      onSecondary: Colors.white,
+      primaryContainer: Color(0xFFD6E4F2),
+      onPrimaryContainer: Color(0xFF00305C),
+      secondary: accentYellow,
+      onSecondary: Color(0xFF3D2E00),
+      secondaryContainer: Color(0xFFFFF1C2),
+      onSecondaryContainer: Color(0xFF4A3A00),
       surface: Colors.white,
       onSurface: ink,
       surfaceContainerHighest: surfaceMuted,
-      outline: Color(0xFFD4D4D8),
+      outline: Color(0xFFC3CEDD),
       outlineVariant: line,
       error: Color(0xFFDC2626),
     );
@@ -29,15 +35,19 @@ class AppTheme {
 
   static ThemeData get dark {
     const scheme = ColorScheme.dark(
-      primary: Colors.white,
-      onPrimary: ink,
-      secondary: Colors.white,
-      onSecondary: ink,
-      surface: Color(0xFF0A0A0A),
-      onSurface: Color(0xFFF4F4F5),
-      surfaceContainerHighest: Color(0xFF1C1C1F),
-      outline: Color(0xFF3F3F46),
-      outlineVariant: Color(0xFF27272A),
+      primary: Color(0xFF8FBEE8),
+      onPrimary: Color(0xFF002A4E),
+      primaryContainer: Color(0xFF003B6F),
+      onPrimaryContainer: Color(0xFFD6E4F2),
+      secondary: accentYellow,
+      onSecondary: Color(0xFF3D2E00),
+      secondaryContainer: Color(0xFF5A4A12),
+      onSecondaryContainer: Color(0xFFFFF1C2),
+      surface: Color(0xFF0F1722),
+      onSurface: Color(0xFFE8EEF5),
+      surfaceContainerHighest: Color(0xFF1B2735),
+      outline: Color(0xFF3A4A5E),
+      outlineVariant: Color(0xFF273241),
       error: Color(0xFFF87171),
     );
     return _base(scheme, Brightness.dark);

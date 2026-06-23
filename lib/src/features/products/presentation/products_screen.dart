@@ -38,6 +38,7 @@ class ProductsScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.auto_awesome_outlined),
+            color: Theme.of(context).colorScheme.primary,
             tooltip: 'AI search',
             onPressed: () => _openSearch(context),
           ),
@@ -115,7 +116,7 @@ class _SearchField extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.auto_awesome, size: 20),
+            Icon(Icons.auto_awesome, size: 20, color: theme.colorScheme.primary),
             const SizedBox(width: 10),
             Text(
               'Search anything for your store…',

@@ -21,6 +21,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final cartCount = ref.watch(cartCountProvider);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: IndexedStack(
@@ -45,11 +46,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: Badge.count(
               count: cartCount,
               isLabelVisible: cartCount > 0,
+              backgroundColor: scheme.secondary,
+              textColor: scheme.onSecondary,
               child: const Icon(Icons.shopping_bag_outlined),
             ),
             selectedIcon: Badge.count(
               count: cartCount,
               isLabelVisible: cartCount > 0,
+              backgroundColor: scheme.secondary,
+              textColor: scheme.onSecondary,
               child: const Icon(Icons.shopping_bag),
             ),
             label: 'Cart',
