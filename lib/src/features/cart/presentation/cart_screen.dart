@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/formatters.dart';
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/skeleton.dart';
 import '../../addresses/presentation/address_controller.dart';
 import '../../addresses/presentation/add_address_screen.dart';
 import '../../orders/presentation/orders_controller.dart';
@@ -55,6 +56,7 @@ class CartScreen extends ConsumerWidget {
       body: AsyncValueView<Cart>(
         value: cartAsync,
         onRetry: () => ref.invalidate(cartControllerProvider),
+        loading: () => const ListCardSkeleton(itemCount: 4, height: 64),
         data: (cart) {
           if (cart.isEmpty) return const _EmptyCart();
           return Column(

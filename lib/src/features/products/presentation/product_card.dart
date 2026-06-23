@@ -34,19 +34,19 @@ class ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Stack(
-              children: [
-                AspectRatio(
-                  aspectRatio: 1,
-                  child: ProductThumb(imageUrl: product.imageUrl),
-                ),
-                if (outOfStock)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: _badge(context, 'Out of stock'),
-                  ),
-              ],
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ProductThumb(imageUrl: product.imageUrl),
+                  if (outOfStock)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: _badge(context, 'Out of stock'),
+                    ),
+                ],
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),

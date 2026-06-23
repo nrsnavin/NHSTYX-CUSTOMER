@@ -9,17 +9,21 @@ class AsyncValueView<T> extends StatelessWidget {
     required this.value,
     required this.data,
     this.onRetry,
+    this.loading,
   });
 
   final AsyncValue<T> value;
   final Widget Function(T data) data;
   final VoidCallback? onRetry;
 
+  /// Optional custom loading view (e.g. a skeleton). Defaults to a spinner.
+  final Widget Function()? loading;
+
   @override
   Widget build(BuildContext context) {
     return value.when(
       data: data,
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => loading?.call() ?? const Center(child: CircularProgressIndicator()),
       error: (error, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(24),

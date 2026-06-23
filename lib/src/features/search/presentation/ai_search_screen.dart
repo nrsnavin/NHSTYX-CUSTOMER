@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/widgets/skeleton.dart';
 import '../../cart/presentation/cart_controller.dart';
 import '../../products/domain/product.dart';
 import '../../products/presentation/product_card.dart';
@@ -81,7 +82,7 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
         ),
       ),
       body: state.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ProductGridSkeleton(),
         error: (e, _) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(e.toString()))),
         data: (result) {
           if (result == null) return _Suggestions(onTap: _search);

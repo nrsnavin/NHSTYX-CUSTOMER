@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/skeleton.dart';
 import '../../categories/presentation/category_controller.dart';
 import '../../cart/presentation/cart_controller.dart';
 import '../../search/presentation/ai_search_screen.dart';
@@ -55,6 +56,7 @@ class ProductsScreen extends ConsumerWidget {
             child: AsyncValueView<List<Product>>(
               value: productsAsync,
               onRetry: () => ref.invalidate(productsProvider),
+              loading: () => const ProductGridSkeleton(),
               data: (products) {
                 if (products.isEmpty) {
                   return const _EmptyCatalog();

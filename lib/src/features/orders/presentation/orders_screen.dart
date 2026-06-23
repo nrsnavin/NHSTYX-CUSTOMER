@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../shared/formatters.dart';
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/skeleton.dart';
 import '../domain/order.dart';
 import 'orders_controller.dart';
 
@@ -19,6 +20,7 @@ class OrdersScreen extends ConsumerWidget {
       body: AsyncValueView<List<Order>>(
         value: ordersAsync,
         onRetry: () => ref.invalidate(ordersProvider),
+        loading: () => const ListCardSkeleton(height: 150),
         data: (orders) {
           if (orders.isEmpty) {
             return const _NoOrders();

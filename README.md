@@ -8,6 +8,14 @@ The Flutter mobile app for **garment store & boutique owners** to browse the who
 
 ---
 
+## Screenshots
+
+| Shop | Product detail | AI search | Loading (skeletons) |
+|------|----------------|-----------|---------------------|
+| ![Shop](docs/screenshots/shop.png) | ![Detail](docs/screenshots/detail.png) | ![Search](docs/screenshots/search.png) | ![Skeletons](docs/screenshots/shop_loading.png) |
+
+---
+
 ## ⚠️ First-time setup
 
 This repository contains the Dart source and project config. The platform
