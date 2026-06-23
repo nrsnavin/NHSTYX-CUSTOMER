@@ -50,6 +50,28 @@ class ProfileScreen extends ConsumerWidget {
                   if (customer.gstin != null)
                     _Tile(icon: Icons.receipt_long_outlined, label: 'GSTIN', value: customer.gstin!),
                 ]),
+                const SizedBox(height: 20),
+                if (customer.store != null)
+                  _Section(title: 'Your store', children: [
+                    _Tile(
+                        icon: Icons.storefront_outlined,
+                        label: 'Served by',
+                        value: customer.store!.name),
+                    _Tile(
+                        icon: Icons.local_shipping_outlined,
+                        label: 'Ships from',
+                        value: customer.store!.city),
+                  ])
+                else
+                  const _Section(title: 'Your store', children: [
+                    ListTile(
+                      leading: Icon(Icons.info_outline, size: 20),
+                      title: Text('No store linked yet'),
+                      subtitle: Text(
+                          "We don't serve your city yet. Contact support to get set up."),
+                      dense: true,
+                    ),
+                  ]),
                 const SizedBox(height: 28),
                 OutlinedButton.icon(
                   onPressed: () => ref.read(authControllerProvider.notifier).logout(),

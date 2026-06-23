@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/skeleton.dart';
+import '../../auth/presentation/auth_controller.dart';
 import '../../categories/presentation/category_controller.dart';
 import '../../cart/presentation/cart_controller.dart';
 import '../../search/presentation/ai_search_screen.dart';
@@ -31,6 +32,7 @@ class ProductsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final productsAsync = ref.watch(productsProvider);
+    final store = ref.watch(authControllerProvider).valueOrNull?.store;
 
     return Scaffold(
       appBar: AppBar(
@@ -46,6 +48,7 @@ class ProductsScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          if (store != null) _StoreBanner(name: store.name, city: store.city),
           // Tappable AI search field
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -60,7 +63,7 @@ class ProductsScreen extends ConsumerWidget {
               loading: () => const ProductGridSkeleton(),
               data: (products) {
                 if (products.isEmpty) {
-                  return const _EmptyCatalog();
+                  return _EmptyCatalog(hasStore: store != null);
                 }
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(productsProvider),
@@ -95,6 +98,40 @@ class ProductsScreen extends ConsumerWidget {
 
   void _openSearch(BuildContext context) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AiSearchScreen()));
+  }
+}
+
+/// Thin banner telling the shop owner which store fulfils their orders.
+class _StoreBanner extends StatelessWidget {
+  const _StoreBanner({required this.name, required this.city});
+  final String name;
+  final String city;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      color: scheme.primaryContainer,
+      child: Row(
+        children: [
+          Icon(Icons.local_shipping_outlined, size: 16, color: scheme.onPrimaryContainer),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Shipped from $name · $city',
+              style: TextStyle(
+                color: scheme.onPrimaryContainer,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -202,7 +239,8 @@ class _Chip extends StatelessWidget {
 }
 
 class _EmptyCatalog extends StatelessWidget {
-  const _EmptyCatalog();
+  const _EmptyCatalog({required this.hasStore});
+  final bool hasStore;
 
   @override
   Widget build(BuildContext context) {
@@ -210,9 +248,31 @@ class _EmptyCatalog extends StatelessWidget {
     return ListView(
       children: [
         const SizedBox(height: 120),
-        Icon(Icons.inventory_2_outlined, size: 48, color: theme.colorScheme.outline),
+        Icon(
+          hasStore ? Icons.inventory_2_outlined : Icons.location_off_outlined,
+          size: 48,
+          color: theme.colorScheme.outline,
+        ),
         const SizedBox(height: 12),
-        Center(child: Text('No products here yet', style: theme.textTheme.titleMedium)),
+        Center(
+          child: Text(
+            hasStore ? 'No products here yet' : "We don't serve your city yet",
+            style: theme.textTheme.titleMedium,
+          ),
+        ),
+        if (!hasStore) ...[
+          const SizedBox(height: 6),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                'Contact support to get your store connected.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

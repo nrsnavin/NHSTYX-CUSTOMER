@@ -16,6 +16,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _shopName = TextEditingController();
   final _ownerName = TextEditingController();
   final _phone = TextEditingController();
+  final _city = TextEditingController();
   final _email = TextEditingController();
   final _gstin = TextEditingController();
   final _password = TextEditingController();
@@ -25,6 +26,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _shopName.dispose();
     _ownerName.dispose();
     _phone.dispose();
+    _city.dispose();
     _email.dispose();
     _gstin.dispose();
     _password.dispose();
@@ -37,6 +39,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           shopName: _shopName.text.trim(),
           phone: _phone.text.trim(),
           password: _password.text,
+          city: _city.text.trim(),
           ownerName: _ownerName.text.trim(),
           email: _email.text.trim(),
           gstin: _gstin.text.trim(),
@@ -96,6 +99,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                   validator: (v) =>
                       (v == null || v.length != 10) ? 'Enter a 10-digit phone number' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _city,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'City',
+                    helperText: 'Connects you to the store that serves your area',
+                    prefixIcon: Icon(Icons.location_city_outlined),
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().length < 2) ? 'Enter your city' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(

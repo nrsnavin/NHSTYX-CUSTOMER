@@ -1,3 +1,22 @@
+/// The store that serves this shop owner (by their city).
+class CustomerStore {
+  const CustomerStore({required this.id, required this.name, required this.city, this.code});
+
+  final String id;
+  final String name;
+  final String city;
+  final String? code;
+
+  factory CustomerStore.fromJson(Map<String, dynamic> json) {
+    return CustomerStore(
+      id: json['id'] as String,
+      name: (json['name'] ?? '') as String,
+      city: (json['city'] ?? '') as String,
+      code: json['code'] as String?,
+    );
+  }
+}
+
 /// The signed-in shop owner (NH Styx customer). Phone is the primary identity.
 class Customer {
   const Customer({
@@ -7,6 +26,7 @@ class Customer {
     this.ownerName,
     this.email,
     this.gstin,
+    this.store,
   });
 
   final String id;
@@ -16,6 +36,9 @@ class Customer {
   final String? email;
   final String? gstin;
 
+  /// The store serving this customer; null if their city isn't covered yet.
+  final CustomerStore? store;
+
   factory Customer.fromJson(Map<String, dynamic> json) {
     return Customer(
       id: json['id'] as String,
@@ -24,6 +47,9 @@ class Customer {
       ownerName: json['ownerName'] as String?,
       email: json['email'] as String?,
       gstin: json['gstin'] as String?,
+      store: json['store'] is Map<String, dynamic>
+          ? CustomerStore.fromJson(json['store'] as Map<String, dynamic>)
+          : null,
     );
   }
 }
