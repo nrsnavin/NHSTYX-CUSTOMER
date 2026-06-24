@@ -20,6 +20,10 @@ dependencies:
   dio: ^5.7.0
   razorpay_flutter: ^1.4.0
 
+  # Location detection (GPS + reverse geocoding) for the registration city
+  geolocator: ^13.0.1
+  geocoding: ^3.0.0
+
   # Secure token storage
   flutter_secure_storage: ^9.2.2
 

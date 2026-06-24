@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/location_service.dart';
 import '../data/service_cities.dart';
 import '../domain/customer.dart';
 import 'auth_controller.dart';
@@ -180,14 +181,71 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 }
 
 /// City picker limited to serviceable cities; once chosen it confirms the
-/// store that will serve the shop (lightweight location verification).
-class _CityDropdown extends ConsumerWidget {
+/// store that will serve the shop (lightweight location verification). A
+/// "Use my location" action detects the device's city via GPS and pre-selects
+/// it when we serve that area.
+class _CityDropdown extends ConsumerStatefulWidget {
   const _CityDropdown({required this.value, required this.onChanged});
   final String? value;
   final ValueChanged<String?> onChanged;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_CityDropdown> createState() => _CityDropdownState();
+}
+
+class _CityDropdownState extends ConsumerState<_CityDropdown> {
+  bool _detecting = false;
+
+  /// Detects the device city and matches it against the serviceable list.
+  Future<void> _detect(List<ServiceCity> cities) async {
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _detecting = true);
+    try {
+      final candidates = await ref.read(locationServiceProvider).detectCityCandidates();
+      final match = _matchCity(candidates, cities);
+      if (match != null) {
+        widget.onChanged(match.city);
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text('Location matched: ${match.city}')));
+      } else {
+        final nearest = candidates.isNotEmpty ? candidates.first : 'your area';
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text('We don’t serve $nearest yet — pick a city from the list.')),
+          );
+      }
+    } catch (e) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _detecting = false);
+    }
+  }
+
+  /// Finds the serviceable city best matching the GPS candidates: exact name
+  /// first (case-insensitive), then a loose contains-match either direction.
+  ServiceCity? _matchCity(List<String> candidates, List<ServiceCity> cities) {
+    for (final cand in candidates) {
+      final c = cand.toLowerCase();
+      for (final sc in cities) {
+        if (sc.city.toLowerCase() == c) return sc;
+      }
+    }
+    for (final cand in candidates) {
+      final c = cand.toLowerCase();
+      for (final sc in cities) {
+        final name = sc.city.toLowerCase();
+        if (name.contains(c) || c.contains(name)) return sc;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final citiesAsync = ref.watch(serviceCitiesProvider);
 
@@ -204,7 +262,7 @@ class _CityDropdown extends ConsumerWidget {
         ]),
       ),
       error: (_, __) => TextFormField(
-        onChanged: onChanged,
+        onChanged: widget.onChanged,
         decoration: const InputDecoration(
           labelText: 'City',
           helperText: 'Couldn’t load cities — type your city',
@@ -215,7 +273,7 @@ class _CityDropdown extends ConsumerWidget {
       data: (cities) {
         String? storeName;
         for (final c in cities) {
-          if (c.city == value) {
+          if (c.city == widget.value) {
             storeName = c.storeName;
             break;
           }
@@ -224,7 +282,7 @@ class _CityDropdown extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             DropdownButtonFormField<String>(
-              initialValue: value,
+              initialValue: widget.value,
               isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'City',
@@ -235,12 +293,23 @@ class _CityDropdown extends ConsumerWidget {
                 for (final c in cities)
                   DropdownMenuItem(value: c.city, child: Text(c.city)),
               ],
-              onChanged: onChanged,
+              onChanged: widget.onChanged,
               validator: (v) => (v == null || v.isEmpty) ? 'Select your city' : null,
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _detecting ? null : () => _detect(cities),
+                icon: _detecting
+                    ? const SizedBox(
+                        height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.my_location, size: 18),
+                label: Text(_detecting ? 'Detecting…' : 'Use my location'),
+              ),
             ),
             if (storeName != null)
               Padding(
-                padding: const EdgeInsets.only(top: 8, left: 4),
+                padding: const EdgeInsets.only(top: 4, left: 4),
                 child: Row(
                   children: [
                     Icon(Icons.verified_outlined, size: 16, color: theme.colorScheme.primary),
