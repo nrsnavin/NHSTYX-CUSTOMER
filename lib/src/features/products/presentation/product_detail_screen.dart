@@ -30,7 +30,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _adding = true);
     try {
-      await ref.read(cartControllerProvider.notifier).add(_p.id, _qty);
+      await ref.read(cartControllerProvider.notifier).add(_p, _qty);
       messenger
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text('Added ${_p.name} to cart')));

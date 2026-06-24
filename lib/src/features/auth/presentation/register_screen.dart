@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/service_cities.dart';
 import '../domain/customer.dart';
 import 'auth_controller.dart';
 
@@ -17,17 +18,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _shopName = TextEditingController();
   final _ownerName = TextEditingController();
   final _phone = TextEditingController();
-  final _city = TextEditingController();
   final _email = TextEditingController();
   final _gstin = TextEditingController();
   final _password = TextEditingController();
+
+  String? _city; // selected from the serviceable-cities dropdown
 
   @override
   void dispose() {
     _shopName.dispose();
     _ownerName.dispose();
     _phone.dispose();
-    _city.dispose();
     _email.dispose();
     _gstin.dispose();
     _password.dispose();
@@ -46,7 +47,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             shopName: _shopName.text.trim(),
             phone: _phone.text.trim(),
             password: _password.text,
-            city: _city.text.trim(),
+            city: _city!.trim(),
             ownerName: _ownerName.text.trim(),
             email: _email.text.trim(),
             gstin: _gstin.text.trim(),
@@ -112,16 +113,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       (v == null || v.length != 10) ? 'Enter a 10-digit phone number' : null,
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _city,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'City',
-                    helperText: 'Connects you to the store that serves your area',
-                    prefixIcon: Icon(Icons.location_city_outlined),
-                  ),
-                  validator: (v) =>
-                      (v == null || v.trim().length < 2) ? 'Enter your city' : null,
+                _CityDropdown(
+                  value: _city,
+                  onChanged: (v) => setState(() => _city = v),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -181,6 +175,87 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// City picker limited to serviceable cities; once chosen it confirms the
+/// store that will serve the shop (lightweight location verification).
+class _CityDropdown extends ConsumerWidget {
+  const _CityDropdown({required this.value, required this.onChanged});
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final citiesAsync = ref.watch(serviceCitiesProvider);
+
+    return citiesAsync.when(
+      loading: () => const InputDecorator(
+        decoration: InputDecoration(
+          labelText: 'City',
+          prefixIcon: Icon(Icons.location_city_outlined),
+        ),
+        child: Row(children: [
+          SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+          SizedBox(width: 10),
+          Text('Loading serviceable cities…'),
+        ]),
+      ),
+      error: (_, __) => TextFormField(
+        onChanged: onChanged,
+        decoration: const InputDecoration(
+          labelText: 'City',
+          helperText: 'Couldn’t load cities — type your city',
+          prefixIcon: Icon(Icons.location_city_outlined),
+        ),
+        validator: (v) => (v == null || v.trim().length < 2) ? 'Enter your city' : null,
+      ),
+      data: (cities) {
+        String? storeName;
+        for (final c in cities) {
+          if (c.city == value) {
+            storeName = c.storeName;
+            break;
+          }
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: value,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'City',
+                helperText: 'Pick the city your shop is in',
+                prefixIcon: Icon(Icons.location_city_outlined),
+              ),
+              items: [
+                for (final c in cities)
+                  DropdownMenuItem(value: c.city, child: Text(c.city)),
+              ],
+              onChanged: onChanged,
+              validator: (v) => (v == null || v.isEmpty) ? 'Select your city' : null,
+            ),
+            if (storeName != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, left: 4),
+                child: Row(
+                  children: [
+                    Icon(Icons.verified_outlined, size: 16, color: theme.colorScheme.primary),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text('Served by $storeName',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.primary, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

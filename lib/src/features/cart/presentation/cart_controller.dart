@@ -1,27 +1,94 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../products/domain/product.dart';
 import '../data/cart_repository.dart';
 import '../domain/cart.dart';
 
-/// Server-backed cart. Each mutation returns the recomputed cart from the API;
-/// on failure it rethrows (state stays on the last good cart) so the UI can
-/// show a message without losing the basket.
+/// Server-backed cart with OPTIMISTIC updates: each mutation applies instantly
+/// to local state (so the UI — add→stepper morph, cart bar — reacts with zero
+/// perceived lag), then reconciles with the server's authoritative cart. On
+/// failure it reverts to the last good cart and rethrows so the UI can show a
+/// message without losing the basket.
 class CartController extends AutoDisposeAsyncNotifier<Cart> {
   CartRepository get _repo => ref.read(cartRepositoryProvider);
 
   @override
   Future<Cart> build() => _repo.getCart();
 
-  Future<void> add(String productId, int quantity) async {
-    state = AsyncData(await _repo.addItem(productId, quantity));
+  Future<void> add(Product product, int quantity) async {
+    final current = state.valueOrNull ?? Cart.empty;
+    final existing = current.quantityOf(product.id);
+    final newQty =
+        (existing + quantity) < product.moqQty ? product.moqQty : existing + quantity;
+    final unitPrice = product.unitPricePaiseFor(newQty);
+
+    // Optimistic: morph the card to a stepper immediately.
+    state = AsyncData(current.withLine(CartLine(
+      productId: product.id,
+      name: product.name,
+      unit: product.unit,
+      quantity: newQty,
+      moqQty: product.moqQty,
+      stockQty: product.stockQty,
+      unitPricePaise: unitPrice,
+      lineSubtotalPaise: unitPrice * newQty,
+      brand: product.brand,
+      imageUrl: product.imageUrl,
+      gstRatePercent: product.gstRatePercent,
+    )));
+
+    try {
+      state = AsyncData(await _repo.addItem(product.id, quantity));
+    } catch (e) {
+      state = AsyncData(current);
+      rethrow;
+    }
   }
 
   Future<void> setQuantity(String productId, int quantity) async {
-    state = AsyncData(await _repo.setQuantity(productId, quantity));
+    final current = state.valueOrNull;
+
+    if (current != null) {
+      if (quantity <= 0) {
+        state = AsyncData(current.withRemoved(productId));
+      } else {
+        final i = current.items.indexWhere((l) => l.productId == productId);
+        if (i >= 0) {
+          final l = current.items[i];
+          state = AsyncData(current.withLine(CartLine(
+            productId: l.productId,
+            name: l.name,
+            unit: l.unit,
+            quantity: quantity,
+            moqQty: l.moqQty,
+            stockQty: l.stockQty,
+            unitPricePaise: l.unitPricePaise,
+            lineSubtotalPaise: l.unitPricePaise * quantity,
+            brand: l.brand,
+            imageUrl: l.imageUrl,
+            gstRatePercent: l.gstRatePercent,
+          )));
+        }
+      }
+    }
+
+    try {
+      state = AsyncData(await _repo.setQuantity(productId, quantity));
+    } catch (e) {
+      if (current != null) state = AsyncData(current);
+      rethrow;
+    }
   }
 
   Future<void> remove(String productId) async {
-    state = AsyncData(await _repo.removeItem(productId));
+    final current = state.valueOrNull;
+    if (current != null) state = AsyncData(current.withRemoved(productId));
+    try {
+      state = AsyncData(await _repo.removeItem(productId));
+    } catch (e) {
+      if (current != null) state = AsyncData(current);
+      rethrow;
+    }
   }
 
   Future<void> clear() async {

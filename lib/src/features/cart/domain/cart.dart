@@ -67,6 +67,41 @@ class Cart {
 
   static const empty = Cart(items: [], itemCount: 0, totalQuantity: 0, subtotalPaise: 0);
 
+  int quantityOf(String productId) {
+    for (final l in items) {
+      if (l.productId == productId) return l.quantity;
+    }
+    return 0;
+  }
+
+  /// Upserts [line] (matched by productId) and recomputes totals. A quantity
+  /// of 0 removes the line. Used for optimistic UI updates before the server
+  /// confirms, then reconciled with the server's authoritative cart.
+  Cart withLine(CartLine line) {
+    final next = <CartLine>[];
+    var replaced = false;
+    for (final l in items) {
+      if (l.productId == line.productId) {
+        if (line.quantity > 0) next.add(line);
+        replaced = true;
+      } else {
+        next.add(l);
+      }
+    }
+    if (!replaced && line.quantity > 0) next.add(line);
+    return _recomputed(next);
+  }
+
+  Cart withRemoved(String productId) =>
+      _recomputed(items.where((l) => l.productId != productId).toList());
+
+  static Cart _recomputed(List<CartLine> items) => Cart(
+        items: items,
+        itemCount: items.length,
+        totalQuantity: items.fold(0, (s, l) => s + l.quantity),
+        subtotalPaise: items.fold(0, (s, l) => s + l.lineSubtotalPaise),
+      );
+
   factory Cart.fromJson(Map<String, dynamic> json) {
     return Cart(
       items: (json['items'] as List<dynamic>? ?? [])

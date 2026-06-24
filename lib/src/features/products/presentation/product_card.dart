@@ -129,7 +129,7 @@ class _QtyControlState extends ConsumerState<_QtyControl> {
     }
   }
 
-  void _add() => _run(() => ref.read(cartControllerProvider.notifier).add(_p.id, _p.moqQty));
+  void _add() => _run(() => ref.read(cartControllerProvider.notifier).add(_p, _p.moqQty));
 
   void _inc(int qty) =>
       _run(() => ref.read(cartControllerProvider.notifier).setQuantity(_p.id, qty + 1));
