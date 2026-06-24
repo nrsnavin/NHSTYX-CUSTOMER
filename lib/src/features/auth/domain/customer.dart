@@ -27,6 +27,10 @@ class Customer {
     this.email,
     this.gstin,
     this.store,
+    this.status = 'APPROVED',
+    this.creditApproved = false,
+    this.creditLimitPaise = 0,
+    this.creditDays = 0,
   });
 
   final String id;
@@ -39,6 +43,16 @@ class Customer {
   /// The store serving this customer; null if their city isn't covered yet.
   final CustomerStore? store;
 
+  /// PENDING / APPROVED / REJECTED.
+  final String status;
+
+  /// Whether an admin has approved a credit facility, and its limit.
+  final bool creditApproved;
+  final int creditLimitPaise;
+  final int creditDays;
+
+  bool get isApproved => status == 'APPROVED';
+
   factory Customer.fromJson(Map<String, dynamic> json) {
     return Customer(
       id: json['id'] as String,
@@ -50,6 +64,28 @@ class Customer {
       store: json['store'] is Map<String, dynamic>
           ? CustomerStore.fromJson(json['store'] as Map<String, dynamic>)
           : null,
+      status: (json['status'] ?? 'APPROVED') as String,
+      creditApproved: json['creditApproved'] == true,
+      creditLimitPaise: (json['creditLimitPaise'] as num?)?.toInt() ?? 0,
+      creditDays: (json['creditDays'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+/// Result of a registration request — the shop must be approved before sign-in.
+class RegisterResult {
+  const RegisterResult({required this.status, required this.message, this.storeName});
+
+  final String status; // PENDING
+  final String message;
+  final String? storeName;
+
+  factory RegisterResult.fromJson(Map<String, dynamic> json) {
+    final store = json['store'];
+    return RegisterResult(
+      status: (json['status'] ?? 'PENDING') as String,
+      message: (json['message'] ?? 'Your request has been submitted for approval.') as String,
+      storeName: store is Map<String, dynamic> ? store['name'] as String? : null,
     );
   }
 }

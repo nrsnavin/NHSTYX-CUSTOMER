@@ -6,19 +6,27 @@ import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../addresses/presentation/address_controller.dart';
 import '../../addresses/presentation/add_address_screen.dart';
+import '../../auth/presentation/auth_controller.dart';
 import '../../orders/presentation/orders_controller.dart';
 import '../domain/cart.dart';
 import 'cart_controller.dart';
 
-/// Selected payment method for checkout (in-app methods; Razorpay handled later).
-final selectedPaymentProvider = StateProvider.autoDispose<String>((ref) => 'COD');
+/// Selected payment method for checkout. COD is not offered.
+final selectedPaymentProvider = StateProvider.autoDispose<String>((ref) => 'RAZORPAY');
 
-const _paymentLabels = {
-  'RAZORPAY': 'UPI / Card / Netbanking',
-  'COD': 'Cash on Delivery',
-  'CREDIT': 'Credit (Pay Later)',
-  'BANK_TRANSFER': 'Bank Transfer',
-};
+class _Method {
+  const _Method(this.code, this.label, this.sub, this.icon);
+  final String code;
+  final String label;
+  final String sub;
+  final IconData icon;
+}
+
+const _methods = [
+  _Method('RAZORPAY', 'Pay online', 'UPI · Card · Netbanking', Icons.bolt_outlined),
+  _Method('CREDIT', 'Credit (pay later)', 'On your approved credit limit', Icons.account_balance_wallet_outlined),
+  _Method('BANK_TRANSFER', 'Bank transfer', 'NEFT / IMPS — add your reference', Icons.account_balance_outlined),
+];
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -74,7 +82,7 @@ class CartScreen extends ConsumerWidget {
                       title: Text(item.name),
                       subtitle: Text(
                         '${formatPaise(item.unitPricePaise)} / ${item.unit.toLowerCase()} · '
-                            '${formatPaise(item.lineSubtotalPaise)}',
+                        '${formatPaise(item.lineSubtotalPaise)}',
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -105,22 +113,42 @@ class CartScreen extends ConsumerWidget {
   }
 }
 
-class _CheckoutPanel extends ConsumerWidget {
+class _CheckoutPanel extends ConsumerStatefulWidget {
   const _CheckoutPanel({required this.subtotalPaise});
-
   final int subtotalPaise;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_CheckoutPanel> createState() => _CheckoutPanelState();
+}
+
+class _CheckoutPanelState extends ConsumerState<_CheckoutPanel> {
+  final _bankRef = TextEditingController();
+
+  @override
+  void dispose() {
+    _bankRef.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final address = ref.watch(defaultAddressProvider);
     final method = ref.watch(selectedPaymentProvider);
     final checkout = ref.watch(checkoutControllerProvider);
+    final customer = ref.watch(authControllerProvider).valueOrNull;
+
+    final creditApproved = customer?.creditApproved ?? false;
+    final creditLimit = customer?.creditLimitPaise ?? 0;
+    final bankRefMissing = method == 'BANK_TRANSFER' && _bankRef.text.trim().isEmpty;
+    final creditBlocked = method == 'CREDIT' && !creditApproved;
+    final canPlace = address != null && !checkout.isLoading && !bankRefMissing && !creditBlocked;
 
     return Material(
       elevation: 8,
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -138,51 +166,127 @@ class _CheckoutPanel extends ConsumerWidget {
                   child: Text(address == null ? 'Add' : 'Change'),
                 ),
               ),
-              const SizedBox(height: 8),
-              // Payment method
+              const SizedBox(height: 4),
               Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Payment', style: Theme.of(context).textTheme.labelLarge),
+                child: Text('Payment method', style: theme.textTheme.labelLarge),
               ),
-              Wrap(
-                spacing: 8,
-                children: _paymentLabels.entries
-                    .map((e) => ChoiceChip(
-                  label: Text(e.value),
-                  selected: method == e.key,
-                  onSelected: (_) =>
-                  ref.read(selectedPaymentProvider.notifier).state = e.key,
-                ))
-                    .toList(),
-              ),
+              const SizedBox(height: 8),
+              for (final m in _methods)
+                _PaymentTile(
+                  method: m,
+                  selected: method == m.code,
+                  enabled: m.code != 'CREDIT' || creditApproved,
+                  trailing: m.code == 'CREDIT' && creditApproved
+                      ? 'up to ${formatPaise(creditLimit)}'
+                      : m.code == 'CREDIT'
+                          ? 'Not approved'
+                          : null,
+                  onTap: () => ref.read(selectedPaymentProvider.notifier).state = m.code,
+                ),
+              if (method == 'BANK_TRANSFER') ...[
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _bankRef,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'Transfer reference (UTR / txn id)',
+                    helperText: 'Enter the reference after you transfer; we verify and confirm.',
+                    prefixIcon: Icon(Icons.tag),
+                  ),
+                ),
+              ],
+              if (creditBlocked)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text('Credit isn\'t approved for your shop yet.',
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error)),
+                ),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Subtotal (excl. GST)', style: Theme.of(context).textTheme.titleMedium),
-                  Text(formatPaise(subtotalPaise),
-                      style: Theme.of(context).textTheme.titleLarge),
+                  Text('Subtotal (excl. GST)', style: theme.textTheme.titleMedium),
+                  Text(formatPaise(widget.subtotalPaise), style: theme.textTheme.titleLarge),
                 ],
               ),
-              Text(
-                'GST is calculated at checkout based on your delivery state.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              Text('GST is added at checkout based on your delivery state.',
+                  style: theme.textTheme.bodySmall),
               const SizedBox(height: 12),
               FilledButton(
-                onPressed: (address == null || checkout.isLoading)
-                    ? null
-                    : () => ref.read(checkoutControllerProvider.notifier).placeOrder(
-                  addressId: address.id,
-                  paymentMethod: method,
-                ),
+                onPressed: canPlace
+                    ? () => ref.read(checkoutControllerProvider.notifier).placeOrder(
+                          addressId: address.id,
+                          paymentMethod: method,
+                          bankReference: method == 'BANK_TRANSFER' ? _bankRef.text.trim() : null,
+                        )
+                    : null,
                 child: checkout.isLoading
                     ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-                    : Text('Place order · ${_paymentLabels[method]}'),
+                        height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('Place order'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentTile extends StatelessWidget {
+  const _PaymentTile({
+    required this.method,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+    this.trailing,
+  });
+
+  final _Method method;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+  final String? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Opacity(
+      opacity: enabled ? 1 : 0.5,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? scheme.primaryContainer : scheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              Icon(method.icon, size: 22, color: selected ? scheme.primary : scheme.onSurface),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(method.label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text(method.sub,
+                        style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+                  ],
+                ),
+              ),
+              if (trailing != null)
+                Text(trailing!,
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+              const SizedBox(width: 8),
+              Icon(
+                selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                size: 20,
+                color: selected ? scheme.primary : scheme.outline,
               ),
             ],
           ),

@@ -96,6 +96,7 @@ class OrderRepository {
     required String addressId,
     required String paymentMethod,
     String? notes,
+    String? bankReference,
   }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -104,6 +105,7 @@ class OrderRepository {
           'addressId': addressId,
           'paymentMethod': paymentMethod,
           if (notes != null && notes.isNotEmpty) 'notes': notes,
+          if (bankReference != null && bankReference.isNotEmpty) 'bankReference': bankReference,
         },
       );
       return CheckoutResult.fromJson(response.data!['data'] as Map<String, dynamic>);

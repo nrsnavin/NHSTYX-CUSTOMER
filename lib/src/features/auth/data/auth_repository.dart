@@ -22,7 +22,9 @@ class AuthRepository {
     }
   }
 
-  Future<AuthResult> register({
+  /// Submits a registration request. The shop is created PENDING and must be
+  /// approved by the store agent before it can sign in — no tokens are issued.
+  Future<RegisterResult> register({
     required String shopName,
     required String phone,
     required String password,
@@ -44,7 +46,7 @@ class AuthRepository {
           if (gstin != null && gstin.isNotEmpty) 'gstin': gstin,
         },
       );
-      return AuthResult.fromJson(response.data!['data'] as Map<String, dynamic>);
+      return RegisterResult.fromJson(response.data!['data'] as Map<String, dynamic>);
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }

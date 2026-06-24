@@ -33,7 +33,10 @@ class AuthController extends AsyncNotifier<Customer?> {
     });
   }
 
-  Future<void> register({
+  /// Submits a registration request. Does NOT sign the shop in — the account
+  /// is PENDING until the store agent approves it, so no tokens are stored and
+  /// auth state stays signed-out. Returns the result for the screen to show.
+  Future<RegisterResult> register({
     required String shopName,
     required String phone,
     required String password,
@@ -41,24 +44,16 @@ class AuthController extends AsyncNotifier<Customer?> {
     String? ownerName,
     String? email,
     String? gstin,
-  }) async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      final result = await _repo.register(
-        shopName: shopName,
-        phone: phone,
-        password: password,
-        city: city,
-        ownerName: ownerName,
-        email: email,
-        gstin: gstin,
-      );
-      await _storage.saveTokens(
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
-      );
-      return result.customer;
-    });
+  }) {
+    return _repo.register(
+      shopName: shopName,
+      phone: phone,
+      password: password,
+      city: city,
+      ownerName: ownerName,
+      email: email,
+      gstin: gstin,
+    );
   }
 
   Future<void> logout() async {

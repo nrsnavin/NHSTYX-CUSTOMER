@@ -36,7 +36,11 @@ class ProductsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('NH Styx'),
+        toolbarHeight: 64,
+        title: _LocationHeader(
+          city: store?.city,
+          storeName: store?.name,
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.auto_awesome_outlined),
@@ -48,10 +52,9 @@ class ProductsScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
-          if (store != null) _StoreBanner(name: store.name, city: store.city),
           // Tappable AI search field
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: _SearchField(onTap: () => _openSearch(context)),
           ),
           const _CategoryRail(),
@@ -101,36 +104,49 @@ class ProductsScreen extends ConsumerWidget {
   }
 }
 
-/// Thin banner telling the shop owner which store fulfils their orders.
-class _StoreBanner extends StatelessWidget {
-  const _StoreBanner({required this.name, required this.city});
-  final String name;
-  final String city;
+/// Blinkit-style location header: city up front, fulfilling store beneath.
+class _LocationHeader extends StatelessWidget {
+  const _LocationHeader({this.city, this.storeName});
+  final String? city;
+  final String? storeName;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      color: scheme.primaryContainer,
-      child: Row(
-        children: [
-          Icon(Icons.local_shipping_outlined, size: 16, color: scheme.onPrimaryContainer),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Shipped from $name · $city',
-              style: TextStyle(
-                color: scheme.onPrimaryContainer,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w500,
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final hasStore = city != null && city!.isNotEmpty;
+    return Row(
+      children: [
+        Icon(Icons.location_on, color: scheme.primary, size: 26),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      hasStore ? city! : 'NH Styx',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  if (hasStore) Icon(Icons.keyboard_arrow_down, size: 20, color: scheme.onSurface),
+                ],
               ),
-              overflow: TextOverflow.ellipsis,
-            ),
+              Text(
+                hasStore ? 'Shipped from ${storeName ?? ''}' : 'Everything your store needs',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

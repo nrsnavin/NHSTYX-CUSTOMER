@@ -19,12 +19,14 @@ class CheckoutController extends AutoDisposeAsyncNotifier<Order?> {
   Future<Order?> placeOrder({
     required String addressId,
     required String paymentMethod,
+    String? bankReference,
   }) async {
     state = const AsyncLoading();
     final result = await AsyncValue.guard<Order?>(() async {
       final checkout = await ref.read(orderRepositoryProvider).placeOrder(
         addressId: addressId,
         paymentMethod: paymentMethod,
+        bankReference: bankReference,
       );
       ref.invalidate(cartControllerProvider);
       ref.invalidate(ordersProvider);
