@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/formatters.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../categories/presentation/category_controller.dart';
 import '../../cart/presentation/cart_controller.dart';
+import '../../home/presentation/home_screen.dart';
 import '../../search/presentation/ai_search_screen.dart';
 import '../domain/product.dart';
 import 'product_card.dart';
@@ -14,20 +16,6 @@ import 'products_controller.dart';
 
 class ProductsScreen extends ConsumerWidget {
   const ProductsScreen({super.key});
-
-  Future<void> _add(BuildContext context, WidgetRef ref, Product p) async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await ref.read(cartControllerProvider.notifier).add(p.id, p.moqQty);
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text('Added ${p.name} to cart'), duration: const Duration(seconds: 1)));
-    } catch (e) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(e.toString())));
-    }
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -50,6 +38,7 @@ class ProductsScreen extends ConsumerWidget {
           ),
         ],
       ),
+      bottomNavigationBar: const _ViewCartBar(),
       body: Column(
         children: [
           // Tappable AI search field
@@ -86,7 +75,6 @@ class ProductsScreen extends ConsumerWidget {
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
                         ),
-                        onAdd: () => _add(context, ref, p),
                       );
                     },
                   ),
@@ -101,6 +89,52 @@ class ProductsScreen extends ConsumerWidget {
 
   void _openSearch(BuildContext context) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AiSearchScreen()));
+  }
+}
+
+/// Persistent "View cart" bar that slides in when the basket has items —
+/// taps jump straight to the Cart tab.
+class _ViewCartBar extends ConsumerWidget {
+  const _ViewCartBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cart = ref.watch(cartControllerProvider).valueOrNull;
+    final scheme = Theme.of(context).colorScheme;
+    if (cart == null || cart.isEmpty) return const SizedBox.shrink();
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+        child: Material(
+          color: scheme.primary,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            onTap: () => ref.read(homeTabProvider.notifier).state = 1,
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+              child: Row(
+                children: [
+                  Icon(Icons.shopping_bag, color: scheme.onPrimary, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '${cart.totalQuantity} item${cart.totalQuantity == 1 ? '' : 's'} · ${formatPaise(cart.subtotalPaise)}',
+                      style: TextStyle(color: scheme.onPrimary, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Text('View cart',
+                      style: TextStyle(color: scheme.onPrimary, fontWeight: FontWeight.w700)),
+                  Icon(Icons.chevron_right, color: scheme.onPrimary, size: 20),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

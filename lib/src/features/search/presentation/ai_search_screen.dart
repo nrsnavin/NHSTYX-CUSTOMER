@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/widgets/skeleton.dart';
-import '../../cart/presentation/cart_controller.dart';
-import '../../products/domain/product.dart';
 import '../../products/presentation/product_card.dart';
 import '../../products/presentation/product_detail_screen.dart';
 import 'search_controller.dart';
@@ -38,20 +36,6 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
     _controller.text = q;
     _focus.unfocus();
     ref.read(searchControllerProvider.notifier).run(q);
-  }
-
-  Future<void> _addToCart(Product product) async {
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await ref.read(cartControllerProvider.notifier).add(product.id, product.moqQty);
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text('Added ${product.name} to cart'), duration: const Duration(seconds: 1)));
-    } catch (e) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(e.toString())));
-    }
   }
 
   @override
@@ -123,7 +107,6 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
                         ),
-                        onAdd: () => _addToCart(p),
                       );
                     },
                     childCount: result.items.length,

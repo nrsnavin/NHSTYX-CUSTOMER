@@ -36,3 +36,14 @@ final cartControllerProvider =
 final cartCountProvider = Provider.autoDispose<int>((ref) {
   return ref.watch(cartControllerProvider).valueOrNull?.totalQuantity ?? 0;
 });
+
+/// Units of a specific product currently in the cart (0 if absent). Powers the
+/// Blinkit-style add→stepper morph on each product card.
+final cartQuantityProvider = Provider.autoDispose.family<int, String>((ref, productId) {
+  final cart = ref.watch(cartControllerProvider).valueOrNull;
+  if (cart == null) return 0;
+  for (final line in cart.items) {
+    if (line.productId == productId) return line.quantity;
+  }
+  return 0;
+});

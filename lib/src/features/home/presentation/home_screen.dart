@@ -7,25 +7,23 @@ import '../../orders/presentation/orders_screen.dart';
 import '../../products/presentation/products_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
 
+/// Selected bottom-nav tab. Shared so other screens (e.g. the shop's
+/// "View cart" bar) can jump straight to the Cart tab.
+final homeTabProvider = StateProvider<int>((ref) => 0);
+
 /// Bottom-navigation shell. Each tab is a full screen with its own app bar.
-class HomeScreen extends ConsumerStatefulWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends ConsumerState<HomeScreen> {
-  int _index = 0;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final cartCount = ref.watch(cartCountProvider);
     final scheme = Theme.of(context).colorScheme;
+    final index = ref.watch(homeTabProvider);
 
     return Scaffold(
       body: IndexedStack(
-        index: _index,
+        index: index,
         children: const [
           ProductsScreen(),
           CartScreen(),
@@ -34,8 +32,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        selectedIndex: index,
+        onDestinationSelected: (i) => ref.read(homeTabProvider.notifier).state = i,
         destinations: [
           const NavigationDestination(
             icon: Icon(Icons.storefront_outlined),
