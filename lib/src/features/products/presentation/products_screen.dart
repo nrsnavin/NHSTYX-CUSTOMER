@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/formatters.dart';
-import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../categories/presentation/categories_screen.dart';
 import '../../categories/presentation/category_controller.dart';
 import '../../cart/presentation/cart_controller.dart';
 import '../../home/presentation/home_screen.dart';
@@ -19,7 +19,6 @@ class ProductsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final productsAsync = ref.watch(productsProvider);
     final store = ref.watch(authControllerProvider).valueOrNull?.store;
 
     return Scaffold(
@@ -30,6 +29,13 @@ class ProductsScreen extends ConsumerWidget {
           storeName: store?.name,
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.grid_view_outlined),
+            tooltip: 'Categories',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CategoriesScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.auto_awesome_outlined),
             color: Theme.of(context).colorScheme.primary,
@@ -48,40 +54,7 @@ class ProductsScreen extends ConsumerWidget {
           ),
           const _CategoryRail(),
           const SizedBox(height: 4),
-          Expanded(
-            child: AsyncValueView<List<Product>>(
-              value: productsAsync,
-              onRetry: () => ref.invalidate(productsProvider),
-              loading: () => const ProductGridSkeleton(),
-              data: (products) {
-                if (products.isEmpty) {
-                  return _EmptyCatalog(hasStore: store != null);
-                }
-                return RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(productsProvider),
-                  child: GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 14,
-                      crossAxisSpacing: 14,
-                      childAspectRatio: 0.62,
-                    ),
-                    itemCount: products.length,
-                    itemBuilder: (context, i) {
-                      final p = products[i];
-                      return ProductCard(
-                        product: p,
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
+          const Expanded(child: _ShopFeed()),
         ],
       ),
     );
@@ -89,6 +62,177 @@ class ProductsScreen extends ConsumerWidget {
 
   void _openSearch(BuildContext context) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AiSearchScreen()));
+  }
+}
+
+/// The shop's scrolling feed. On the unfiltered home it leads with the
+/// best-selling and recently-ordered rails; once a category or search is
+/// active it shows just the matching grid.
+class _ShopFeed extends ConsumerWidget {
+  const _ShopFeed();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final productsAsync = ref.watch(productsProvider);
+    final store = ref.watch(authControllerProvider).valueOrNull?.store;
+    final filtering = ref.watch(selectedCategoryProvider) != null ||
+        ref.watch(productSearchProvider).isNotEmpty;
+    final city = store?.city;
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(productsProvider);
+        ref.invalidate(bestSellingProvider);
+        ref.invalidate(recentlyOrderedProvider);
+      },
+      child: CustomScrollView(
+        slivers: [
+          if (!filtering) ...[
+            _ProductRailSliver(
+              title: (city == null || city.isEmpty) ? 'Best selling' : 'Best selling in $city',
+              icon: Icons.local_fire_department_outlined,
+              provider: bestSellingProvider,
+            ),
+            _ProductRailSliver(
+              title: 'Recently ordered',
+              icon: Icons.history,
+              provider: recentlyOrderedProvider,
+            ),
+            const _SectionHeaderSliver(title: 'All products'),
+          ],
+          ...productsAsync.when(
+            loading: () => const [SliverFillRemaining(child: ProductGridSkeleton())],
+            error: (e, _) => [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Center(child: Text(e.toString())),
+                ),
+              ),
+            ],
+            data: (products) {
+              if (products.isEmpty) {
+                return [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _EmptyCatalog(hasStore: store != null),
+                  ),
+                ];
+              }
+              return [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  sliver: SliverGrid(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 14,
+                      crossAxisSpacing: 14,
+                      childAspectRatio: 0.62,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, i) {
+                        final p = products[i];
+                        return ProductCard(
+                          product: p,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
+                          ),
+                        );
+                      },
+                      childCount: products.length,
+                    ),
+                  ),
+                ),
+              ];
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A horizontal product rail backed by an async provider; renders nothing
+/// until it has at least one product (so empty rails — e.g. a new customer's
+/// "Recently ordered" — simply disappear).
+class _ProductRailSliver extends ConsumerWidget {
+  const _ProductRailSliver({required this.title, required this.icon, required this.provider});
+
+  final String title;
+  final IconData icon;
+  final ProviderListenable<AsyncValue<List<Product>>> provider;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final products = ref.watch(provider).valueOrNull ?? const <Product>[];
+    if (products.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    return SliverToBoxAdapter(child: _ProductRail(title: title, icon: icon, products: products));
+  }
+}
+
+class _ProductRail extends StatelessWidget {
+  const _ProductRail({required this.title, required this.icon, required this.products});
+
+  final String title;
+  final IconData icon;
+  final List<Product> products;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 6),
+              Text(title,
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 248,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: products.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, i) {
+              final p = products[i];
+              return SizedBox(
+                width: 152,
+                child: ProductCard(
+                  product: p,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionHeaderSliver extends StatelessWidget {
+  const _SectionHeaderSliver({required this.title});
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+        child: Text(title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+      ),
+    );
   }
 }
 

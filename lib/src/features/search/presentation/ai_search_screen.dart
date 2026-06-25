@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/widgets/skeleton.dart';
+import '../../categories/domain/category.dart';
+import '../../categories/presentation/category_controller.dart';
 import '../../products/presentation/product_card.dart';
 import '../../products/presentation/product_detail_screen.dart';
+import '../../products/presentation/products_controller.dart';
 import 'search_controller.dart';
 
 const _examples = [
@@ -38,6 +41,13 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
     ref.read(searchControllerProvider.notifier).run(q);
   }
 
+  /// Picking a matched category filters the Shop tab by it and returns there.
+  void _pickCategory(Category c) {
+    ref.read(productSearchProvider.notifier).state = '';
+    ref.read(selectedCategoryProvider.notifier).state = c;
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -70,7 +80,8 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
         error: (e, _) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(e.toString()))),
         data: (result) {
           if (result == null) return _Suggestions(onTap: _search);
-          if (result.items.isEmpty) {
+          final hasCategories = result.categories.isNotEmpty;
+          if (result.items.isEmpty && !hasCategories) {
             return _Empty(reply: result.reply);
           }
           return CustomScrollView(
@@ -90,6 +101,19 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
                   ),
                 ),
               ),
+              if (hasCategories)
+                SliverToBoxAdapter(
+                  child: _CategoryChips(categories: result.categories, onPick: _pickCategory),
+                ),
+              if (result.items.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text('No products matched — try a category above.',
+                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor)),
+                  ),
+                )
+              else
               SliverPadding(
                 padding: const EdgeInsets.all(16),
                 sliver: SliverGrid(
@@ -116,6 +140,39 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// Matched-category quick filters shown above search results.
+class _CategoryChips extends StatelessWidget {
+  const _CategoryChips({required this.categories, required this.onPick});
+  final List<Category> categories;
+  final void Function(Category) onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Categories', style: theme.textTheme.labelLarge?.copyWith(color: theme.hintColor)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: categories
+                .map((c) => ActionChip(
+                      avatar: const Icon(Icons.category_outlined, size: 16),
+                      label: Text(c.name),
+                      onPressed: () => onPick(c),
+                    ))
+                .toList(),
+          ),
+        ],
       ),
     );
   }

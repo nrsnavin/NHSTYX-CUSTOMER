@@ -31,6 +31,7 @@ class Product {
     this.mrpPaise,
     this.imageUrl,
     this.categoryName,
+    this.tags = const [],
     this.priceTiers = const [],
   });
 
@@ -47,6 +48,7 @@ class Product {
   final int? mrpPaise;
   final String? imageUrl;
   final String? categoryName;
+  final List<String> tags;
   final List<PriceTier> priceTiers;
 
   bool get inStock => stockQty > 0;
@@ -89,6 +91,9 @@ class Product {
       mrpPaise: json['mrpPaise'] == null ? null : _toInt(json['mrpPaise']),
       imageUrl: json['imageUrl'] as String?,
       categoryName: category?['name'] as String?,
+      tags: (json['tags'] as List<dynamic>? ?? const [])
+          .map((e) => e.toString())
+          .toList(),
       priceTiers: (json['priceTiers'] as List<dynamic>? ?? [])
           .map((e) => PriceTier.fromJson(e as Map<String, dynamic>))
           .toList(),
