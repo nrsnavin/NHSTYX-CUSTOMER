@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 import '../../../shared/widgets/skeleton.dart';
 import '../../categories/domain/category.dart';
@@ -28,8 +30,72 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
 
+  final SpeechToText _speech = SpeechToText();
+  bool _speechReady = false;
+  bool _listening = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initSpeech();
+  }
+
+  Future<void> _initSpeech() async {
+    try {
+      _speechReady = await _speech.initialize(
+        onStatus: (s) {
+          if (mounted) setState(() => _listening = s == SpeechToText.listeningStatus);
+        },
+        onError: (_) {
+          if (mounted) setState(() => _listening = false);
+        },
+      );
+    } catch (_) {
+      _speechReady = false;
+    }
+    if (mounted) setState(() {});
+  }
+
+  /// Starts/stops voice capture; speech is transcribed into the field live and
+  /// the search runs on the final result.
+  Future<void> _toggleListen() async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (_listening) {
+      await _speech.stop();
+      return;
+    }
+    if (!_speechReady) await _initSpeech();
+    if (!_speechReady) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Voice search isn’t available — check microphone permission.')),
+        );
+      return;
+    }
+    _focus.unfocus();
+    setState(() => _listening = true);
+    await _speech.listen(
+      onResult: _onSpeechResult,
+      listenOptions: SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: true,
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _onSpeechResult(SpeechRecognitionResult result) {
+    setState(() => _controller.text = result.recognizedWords);
+    if (result.finalResult && result.recognizedWords.trim().isNotEmpty) {
+      ref.read(searchControllerProvider.notifier).run(result.recognizedWords.trim());
+    }
+  }
+
   @override
   void dispose() {
+    _speech.cancel();
     _controller.dispose();
     _focus.dispose();
     super.dispose();
@@ -74,6 +140,16 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
             ),
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: _listening ? 'Stop listening' : 'Voice search',
+            icon: Icon(
+              _listening ? Icons.mic : Icons.mic_none,
+              color: _listening ? theme.colorScheme.error : null,
+            ),
+            onPressed: _toggleListen,
+          ),
+        ],
       ),
       body: state.when(
         loading: () => const ProductGridSkeleton(),

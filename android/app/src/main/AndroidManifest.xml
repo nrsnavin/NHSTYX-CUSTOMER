@@ -3,6 +3,8 @@
     <!-- City detection at registration (GPS + reverse geocoding). -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Voice search (speech-to-text). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:label="nhstyx_customer"
@@ -46,6 +48,10 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Lets speech_to_text discover the on-device recognition service. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 </manifest>
