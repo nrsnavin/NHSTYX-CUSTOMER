@@ -17,6 +17,13 @@ final productsProvider = FutureProvider.autoDispose<List<Product>>((ref) async {
       );
 });
 
+/// Products for a single category id — backs the dedicated category page.
+/// Tree-aware on the backend (a parent includes its children).
+final categoryProductsProvider =
+    FutureProvider.autoDispose.family<List<Product>, String>((ref, categoryId) {
+  return ref.watch(productRepositoryProvider).fetchProducts(categoryId: categoryId, limit: 100);
+});
+
 /// Best sellers in the customer's city/store (home rail).
 final bestSellingProvider = FutureProvider.autoDispose<List<Product>>((ref) {
   return ref.watch(productRepositoryProvider).fetchBestSelling();
