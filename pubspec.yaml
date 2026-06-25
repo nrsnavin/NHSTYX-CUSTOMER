@@ -30,6 +30,9 @@ dependencies:
   # Formatting (currency, dates)
   intl: ^0.19.0
 
+  # In-app GST invoice PDF viewing (for paid orders)
+  printing: ^5.13.0
+
   cupertino_icons: ^1.0.8
 
 dev_dependencies:

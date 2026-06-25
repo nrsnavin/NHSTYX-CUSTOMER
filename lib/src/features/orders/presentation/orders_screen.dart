@@ -6,6 +6,7 @@ import '../../../shared/formatters.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../domain/order.dart';
+import 'invoice_screen.dart';
 import 'orders_controller.dart';
 
 class OrdersScreen extends ConsumerWidget {
@@ -121,6 +122,20 @@ class _OrderCard extends StatelessWidget {
                 ),
               ],
             ),
+            // Invoice is available once payment is confirmed.
+            if (paid) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => InvoiceScreen(order: order)),
+                  ),
+                  icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                  label: const Text('View invoice'),
+                ),
+              ),
+            ],
           ],
         ),
       ),

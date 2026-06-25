@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -143,6 +145,19 @@ class OrderRepository {
       );
       final items = response.data!['items'] as List<dynamic>;
       return items.map((e) => Order.fromJson(e as Map<String, dynamic>)).toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  /// Downloads the GST invoice PDF bytes for an order (paid orders only).
+  Future<Uint8List> fetchInvoice(String orderId) async {
+    try {
+      final response = await _dio.get<List<int>>(
+        '/orders/$orderId/invoice',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return Uint8List.fromList(response.data ?? const []);
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }
