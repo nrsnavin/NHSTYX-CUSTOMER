@@ -99,6 +99,7 @@ class OrderRepository {
     required String paymentMethod,
     String? notes,
     String? bankReference,
+    String? couponCode,
   }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -108,6 +109,7 @@ class OrderRepository {
           'paymentMethod': paymentMethod,
           if (notes != null && notes.isNotEmpty) 'notes': notes,
           if (bankReference != null && bankReference.isNotEmpty) 'bankReference': bankReference,
+          if (couponCode != null && couponCode.isNotEmpty) 'couponCode': couponCode,
         },
       );
       return CheckoutResult.fromJson(response.data!['data'] as Map<String, dynamic>);

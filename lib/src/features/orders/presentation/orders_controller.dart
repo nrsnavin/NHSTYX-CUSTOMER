@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../cart/presentation/cart_controller.dart';
+import '../../coupons/data/coupon_repository.dart';
 import '../data/order_repository.dart';
 import '../data/razorpay_service.dart';
 import '../domain/order.dart';
@@ -20,6 +21,7 @@ class CheckoutController extends AutoDisposeAsyncNotifier<Order?> {
     required String addressId,
     required String paymentMethod,
     String? bankReference,
+    String? couponCode,
   }) async {
     state = const AsyncLoading();
     final result = await AsyncValue.guard<Order?>(() async {
@@ -27,11 +29,13 @@ class CheckoutController extends AutoDisposeAsyncNotifier<Order?> {
         addressId: addressId,
         paymentMethod: paymentMethod,
         bankReference: bankReference,
+        couponCode: couponCode,
       );
 
       if (paymentMethod != 'RAZORPAY') {
         // Order is final the moment it's placed — the server already emptied
         // the cart, so refresh it (now empty) and the order history.
+        ref.read(appliedCouponProvider.notifier).state = null;
         ref.invalidate(cartControllerProvider);
         ref.invalidate(ordersProvider);
         return checkout.order;
@@ -54,6 +58,7 @@ class CheckoutController extends AutoDisposeAsyncNotifier<Order?> {
       );
 
       // Paid + verified — the server has now emptied the cart; refresh both.
+      ref.read(appliedCouponProvider.notifier).state = null;
       ref.invalidate(cartControllerProvider);
       ref.invalidate(ordersProvider);
       return paidOrder;
