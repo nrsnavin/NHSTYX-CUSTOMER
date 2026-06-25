@@ -12,6 +12,9 @@ import 'package:nhstyx_customer/src/features/categories/domain/category.dart';
 import 'package:nhstyx_customer/src/features/products/data/product_repository.dart';
 import 'package:nhstyx_customer/src/features/products/domain/product.dart';
 import 'package:nhstyx_customer/src/features/products/presentation/products_screen.dart';
+import 'package:nhstyx_customer/src/features/orders/domain/order.dart';
+import 'package:nhstyx_customer/src/features/orders/presentation/orders_controller.dart';
+import 'package:nhstyx_customer/src/features/orders/presentation/orders_screen.dart';
 import 'package:nhstyx_customer/src/features/profile/presentation/gst_details_screen.dart';
 import 'package:nhstyx_customer/src/features/profile/presentation/profile_screen.dart';
 import 'package:nhstyx_customer/src/features/wishlist/data/wishlist_repository.dart';
@@ -185,7 +188,50 @@ void main() {
   testWidgets('gst details', (tester) async {
     await _shoot(tester, 'gst_details', const GstDetailsScreen());
   });
+
+  testWidgets('orders', (tester) async {
+    await _shoot(
+      tester,
+      'orders',
+      const OrdersScreen(),
+      overrides: [ordersProvider.overrideWith((ref) async => _orders())],
+    );
+  });
 }
+
+List<Order> _orders() => [
+      Order(
+        id: 'o1',
+        orderNumber: 'ORD-2026-00018',
+        status: 'DELIVERED',
+        paymentStatus: 'PAID',
+        paymentMethod: 'BANK_TRANSFER',
+        subtotalPaise: 405000,
+        cgstPaise: 10125,
+        sgstPaise: 10125,
+        totalPaise: 427500,
+        amountDuePaise: 0,
+        createdAt: DateTime(2026, 6, 24, 15, 12),
+        items: const [
+          OrderItem(productName: 'Cotton Kurti', variantName: 'Red / M', quantity: 3, unitPricePaise: 32000, lineTotalPaise: 100800, productId: 'p1'),
+          OrderItem(productName: 'Silk Saree', variantName: 'Blue / L', quantity: 2, unitPricePaise: 34000, lineTotalPaise: 71400, productId: 'p2'),
+        ],
+      ),
+      Order(
+        id: 'o2',
+        orderNumber: 'ORD-2026-00017',
+        status: 'PENDING',
+        paymentStatus: 'UNPAID',
+        paymentMethod: 'RAZORPAY',
+        subtotalPaise: 96000,
+        totalPaise: 100800,
+        amountDuePaise: 100800,
+        createdAt: DateTime(2026, 6, 23, 11, 5),
+        items: const [
+          OrderItem(productName: 'Denim Jeans', quantity: 4, unitPricePaise: 24000, lineTotalPaise: 100800, productId: 'p3'),
+        ],
+      ),
+    ];
 
 class _FakeWishlistIds extends WishlistIdsController {
   _FakeWishlistIds(this._ids);
