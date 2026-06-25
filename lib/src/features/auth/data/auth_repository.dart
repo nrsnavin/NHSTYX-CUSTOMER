@@ -61,6 +61,30 @@ class AuthRepository {
     }
   }
 
+  /// Updates the signed-in shop's own profile (GST details, name, email).
+  /// Pass an empty string to clear an optional field (e.g. remove a GSTIN).
+  Future<Customer> updateProfile({
+    String? shopName,
+    String? ownerName,
+    String? email,
+    String? gstin,
+  }) async {
+    try {
+      final response = await _dio.patch<Map<String, dynamic>>(
+        '/auth/customer/me',
+        data: {
+          if (shopName != null) 'shopName': shopName,
+          if (ownerName != null) 'ownerName': ownerName,
+          if (email != null) 'email': email,
+          if (gstin != null) 'gstin': gstin,
+        },
+      );
+      return Customer.fromJson(response.data!['data'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
   Future<void> logout() async {
     try {
       await _dio.post<void>('/auth/logout');

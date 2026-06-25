@@ -56,6 +56,13 @@ class AuthController extends AsyncNotifier<Customer?> {
     );
   }
 
+  /// Re-fetches the signed-in shop's profile (e.g. after editing GST details)
+  /// and refreshes auth state in place.
+  Future<void> refreshProfile() async {
+    final customer = await _repo.me();
+    state = AsyncData(customer);
+  }
+
   Future<void> logout() async {
     await _repo.logout();
     await _storage.clear();

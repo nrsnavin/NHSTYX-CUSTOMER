@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/widgets/product_thumb.dart';
 import '../../cart/presentation/cart_controller.dart';
+import '../../wishlist/presentation/wishlist_controller.dart';
 import '../domain/product.dart';
 
 /// Compact storefront grid tile: image, name, price, MOQ, and a quick-add
@@ -39,6 +40,7 @@ class ProductCard extends StatelessWidget {
                   ProductThumb(imageUrl: product.imageUrl),
                   if (outOfStock)
                     Positioned(top: 8, left: 8, child: _badge(context, 'Out of stock')),
+                  Positioned(top: 6, right: 6, child: _WishlistHeart(productId: product.id)),
                 ],
               ),
             ),
@@ -95,6 +97,44 @@ class ProductCard extends StatelessWidget {
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+    );
+  }
+}
+
+/// Heart overlay that saves/removes the product from the wishlist. Reads the
+/// shared id set so it reflects (and toggles) state instantly across screens.
+class _WishlistHeart extends ConsumerWidget {
+  const _WishlistHeart({required this.productId});
+  final String productId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final saved = ref.watch(wishlistIdsProvider).valueOrNull?.contains(productId) ?? false;
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface.withValues(alpha: 0.92),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () async {
+          final messenger = ScaffoldMessenger.of(context);
+          try {
+            await ref.read(wishlistIdsProvider.notifier).toggle(productId);
+          } catch (e) {
+            messenger
+              ..hideCurrentSnackBar()
+              ..showSnackBar(SnackBar(content: Text(e.toString())));
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(
+            saved ? Icons.favorite : Icons.favorite_border,
+            size: 18,
+            color: saved ? Colors.red : scheme.onSurfaceVariant,
+          ),
+        ),
+      ),
     );
   }
 }

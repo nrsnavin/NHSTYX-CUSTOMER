@@ -2,7 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/presentation/auth_controller.dart';
+import '../../home/presentation/home_screen.dart';
+import '../../wishlist/presentation/wishlist_screen.dart';
+import 'address_book_screen.dart';
+import 'gst_details_screen.dart';
 
+/// Account hub, Blinkit-style: an identity header over a list of menu rows
+/// (orders, wishlist, address book, GST details) and a sign-out action.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -12,118 +18,213 @@ class ProfileScreen extends ConsumerWidget {
     final customer = ref.watch(authControllerProvider).valueOrNull;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(title: const Text('Account')),
       body: customer == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(vertical: 12),
               children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                      child: Text(
-                        customer.shopName.isNotEmpty ? customer.shopName[0].toUpperCase() : '?',
-                        style: theme.textTheme.titleLarge,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(customer.shopName, style: theme.textTheme.titleLarge),
-                          if (customer.ownerName != null)
-                            Text(customer.ownerName!,
-                                style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor)),
-                        ],
-                      ),
-                    ),
-                  ],
+                _Header(
+                  shopName: customer.shopName,
+                  phone: customer.phone,
+                  storeLabel: customer.store == null
+                      ? null
+                      : 'Served by ${customer.store!.name} · ${customer.store!.city}',
                 ),
-                const SizedBox(height: 24),
-                _Section(title: 'Account', children: [
-                  _Tile(icon: Icons.phone_outlined, label: 'Phone', value: '+91 ${customer.phone}'),
-                  if (customer.email != null)
-                    _Tile(icon: Icons.mail_outline, label: 'Email', value: customer.email!),
-                  if (customer.gstin != null)
-                    _Tile(icon: Icons.receipt_long_outlined, label: 'GSTIN', value: customer.gstin!),
-                ]),
-                const SizedBox(height: 20),
-                if (customer.store != null)
-                  _Section(title: 'Your store', children: [
-                    _Tile(
-                        icon: Icons.storefront_outlined,
-                        label: 'Served by',
-                        value: customer.store!.name),
-                    _Tile(
-                        icon: Icons.local_shipping_outlined,
-                        label: 'Ships from',
-                        value: customer.store!.city),
-                  ])
-                else
-                  const _Section(title: 'Your store', children: [
-                    ListTile(
-                      leading: Icon(Icons.info_outline, size: 20),
-                      title: Text('No store linked yet'),
-                      subtitle: Text(
-                          "We don't serve your city yet. Contact support to get set up."),
-                      dense: true,
+                const SizedBox(height: 8),
+                _MenuGroup(children: [
+                  _MenuRow(
+                    icon: Icons.receipt_long_outlined,
+                    label: 'Your orders',
+                    subtitle: 'Track, reorder & view invoices',
+                    onTap: () {
+                      // Orders is a bottom-nav tab on the home shell.
+                      ref.read(homeTabProvider.notifier).state = 2;
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                  _MenuRow(
+                    icon: Icons.favorite_border,
+                    label: 'Wishlist',
+                    subtitle: 'Products you saved for later',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const WishlistScreen()),
                     ),
-                  ]),
-                const SizedBox(height: 28),
-                OutlinedButton.icon(
-                  onPressed: () => ref.read(authControllerProvider.notifier).logout(),
-                  icon: const Icon(Icons.logout, size: 18),
-                  label: const Text('Sign out'),
+                  ),
+                  _MenuRow(
+                    icon: Icons.location_on_outlined,
+                    label: 'Address book',
+                    subtitle: 'Manage delivery addresses',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AddressBookScreen()),
+                    ),
+                  ),
+                  _MenuRow(
+                    icon: Icons.description_outlined,
+                    label: 'GST & business details',
+                    subtitle: customer.gstin?.isNotEmpty == true
+                        ? customer.gstin!
+                        : 'Add GSTIN for tax invoices',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const GstDetailsScreen()),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 16),
+                _MenuGroup(children: [
+                  _MenuRow(
+                    icon: Icons.logout,
+                    label: 'Log out',
+                    danger: true,
+                    onTap: () => _confirmLogout(context, ref),
+                  ),
+                ]),
+                const SizedBox(height: 24),
+                Center(
+                  child: Text(
+                    'NH Styx',
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                  ),
                 ),
               ],
             ),
     );
   }
+
+  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text('You will need to sign in again to place orders.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Log out')),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(authControllerProvider.notifier).logout();
+    }
+  }
 }
 
-class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.children});
-  final String title;
+class _Header extends StatelessWidget {
+  const _Header({required this.shopName, required this.phone, this.storeLabel});
+  final String shopName;
+  final String phone;
+  final String? storeLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 30,
+            backgroundColor: scheme.primaryContainer,
+            child: Text(
+              shopName.isNotEmpty ? shopName[0].toUpperCase() : '?',
+              style: theme.textTheme.headlineSmall?.copyWith(color: scheme.onPrimaryContainer),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(shopName,
+                    style: theme.textTheme.titleLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 2),
+                Text('+91 $phone', style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor)),
+                if (storeLabel != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.storefront_outlined, size: 14, color: scheme.primary),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          storeLabel!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(color: scheme.primary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A rounded, divided container that groups menu rows (Blinkit-style cards).
+class _MenuGroup extends StatelessWidget {
+  const _MenuGroup({required this.children});
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title.toUpperCase(),
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor, letterSpacing: 0.6)),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: theme.colorScheme.outlineVariant),
-          ),
-          child: Column(children: children),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
         ),
-      ],
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              if (i > 0) const Divider(height: 1),
+              children[i],
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _Tile extends StatelessWidget {
-  const _Tile({required this.icon, required this.label, required this.value});
+class _MenuRow extends StatelessWidget {
+  const _MenuRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.subtitle,
+    this.danger = false,
+  });
   final IconData icon;
   final String label;
-  final String value;
+  final String? subtitle;
+  final VoidCallback onTap;
+  final bool danger;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final color = danger ? theme.colorScheme.error : theme.colorScheme.onSurface;
     return ListTile(
-      leading: Icon(icon, size: 20),
-      title: Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
-      subtitle: Text(value, style: theme.textTheme.bodyMedium),
-      dense: true,
+      onTap: onTap,
+      leading: Icon(icon, color: danger ? theme.colorScheme.error : theme.colorScheme.primary),
+      title: Text(label, style: theme.textTheme.titleSmall?.copyWith(color: color)),
+      subtitle: subtitle == null
+          ? null
+          : Text(subtitle!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
+      trailing: danger ? null : const Icon(Icons.chevron_right, size: 20),
     );
   }
 }

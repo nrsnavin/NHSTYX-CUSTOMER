@@ -46,13 +46,22 @@ class ProductsScreen extends ConsumerWidget {
             ),
           ),
         ],
+        bottom: _stickyHeader(context),
       ),
       bottomNavigationBar: const _ViewCartBar(),
-      body: Column(
+      body: const _ShopFeed(),
+    );
+  }
+
+  PreferredSizeWidget _stickyHeader(BuildContext context) {
+    // Search + category tabs stay pinned at the top (Blinkit-style).
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(148),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Tappable AI search field + quick "past orders / reorder" button
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Row(
               children: [
                 Expanded(child: _SearchField(onTap: () => _openSearch(context))),
@@ -62,9 +71,6 @@ class ProductsScreen extends ConsumerWidget {
             ),
           ),
           const _CategoryRail(),
-          const _BulkOrderBanner(),
-          const SizedBox(height: 4),
-          const Expanded(child: _ShopFeed()),
         ],
       ),
     );
@@ -98,6 +104,7 @@ class _ShopFeed extends ConsumerWidget {
       child: CustomScrollView(
         slivers: [
           if (!filtering) ...[
+            const SliverToBoxAdapter(child: _BulkOrderBanner()),
             _ProductRailSliver(
               title: (city == null || city.isEmpty) ? 'Best selling' : 'Best selling in $city',
               icon: Icons.local_fire_department_outlined,
