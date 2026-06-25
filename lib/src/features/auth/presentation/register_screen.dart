@@ -225,24 +225,42 @@ class _CityDropdownState extends ConsumerState<_CityDropdown> {
     }
   }
 
-  /// Finds the serviceable city best matching the GPS candidates: exact name
-  /// first (case-insensitive), then a loose contains-match either direction.
+  /// Finds the serviceable city best matching the GPS candidates: an exact
+  /// normalized match first, then a loose contains-match either direction.
+  /// Normalizing (lowercase, strip spaces/punctuation) lets "Pimpri-Chinchwad"
+  /// match "Pimpri Chinchwad", "Navi Mumbai" match "navimumbai", etc.
   ServiceCity? _matchCity(List<String> candidates, List<ServiceCity> cities) {
+    String norm(String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
     for (final cand in candidates) {
-      final c = cand.toLowerCase();
+      final c = norm(cand);
+      if (c.isEmpty) continue;
       for (final sc in cities) {
-        if (sc.city.toLowerCase() == c) return sc;
+        if (norm(sc.city) == c) return sc;
       }
     }
     for (final cand in candidates) {
-      final c = cand.toLowerCase();
+      final c = norm(cand);
+      if (c.length < 3) continue;
       for (final sc in cities) {
-        final name = sc.city.toLowerCase();
+        final name = norm(sc.city);
         if (name.contains(c) || c.contains(name)) return sc;
       }
     }
     return null;
   }
+
+  /// Free-text city field used when the serviceable list can't load or is
+  /// empty, so registration is never blocked by a dead/empty dropdown.
+  Widget _manualCityField(String helper) => TextFormField(
+        onChanged: widget.onChanged,
+        decoration: InputDecoration(
+          labelText: 'City',
+          helperText: helper,
+          prefixIcon: const Icon(Icons.location_city_outlined),
+        ),
+        validator: (v) => (v == null || v.trim().length < 2) ? 'Enter your city' : null,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -261,16 +279,11 @@ class _CityDropdownState extends ConsumerState<_CityDropdown> {
           Text('Loading serviceable cities…'),
         ]),
       ),
-      error: (_, __) => TextFormField(
-        onChanged: widget.onChanged,
-        decoration: const InputDecoration(
-          labelText: 'City',
-          helperText: 'Couldn’t load cities — type your city',
-          prefixIcon: Icon(Icons.location_city_outlined),
-        ),
-        validator: (v) => (v == null || v.trim().length < 2) ? 'Enter your city' : null,
-      ),
+      error: (_, __) => _manualCityField('Couldn’t load cities — type your city'),
       data: (cities) {
+        if (cities.isEmpty) {
+          return _manualCityField('No serviceable cities listed yet — type your city');
+        }
         String? storeName;
         for (final c in cities) {
           if (c.city == widget.value) {
