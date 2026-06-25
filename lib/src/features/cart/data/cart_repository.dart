@@ -21,31 +21,38 @@ class CartRepository {
     }
   }
 
-  Future<Cart> addItem(String productId, int quantity) async {
+  Future<Cart> addItem(String productId, int quantity, {String? variantId}) async {
     try {
       return _parse(await _dio.post<Map<String, dynamic>>(
         '/cart/items',
-        data: {'productId': productId, 'quantity': quantity},
+        data: {
+          'productId': productId,
+          'quantity': quantity,
+          if (variantId != null) 'variantId': variantId,
+        },
       ));
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }
   }
 
-  Future<Cart> setQuantity(String productId, int quantity) async {
+  Future<Cart> setQuantity(String productId, int quantity, {String? variantId}) async {
     try {
       return _parse(await _dio.patch<Map<String, dynamic>>(
         '/cart/items/$productId',
-        data: {'quantity': quantity},
+        data: {'quantity': quantity, if (variantId != null) 'variantId': variantId},
       ));
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }
   }
 
-  Future<Cart> removeItem(String productId) async {
+  Future<Cart> removeItem(String productId, {String? variantId}) async {
     try {
-      return _parse(await _dio.delete<Map<String, dynamic>>('/cart/items/$productId'));
+      return _parse(await _dio.delete<Map<String, dynamic>>(
+        '/cart/items/$productId',
+        queryParameters: {if (variantId != null) 'variantId': variantId},
+      ));
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }

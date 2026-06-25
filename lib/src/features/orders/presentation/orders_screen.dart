@@ -82,7 +82,11 @@ class _OrderCard extends ConsumerWidget {
         continue;
       }
       try {
-        await notifier.setQuantity(id, item.quantity);
+        if (item.variantId != null) {
+          await notifier.setLineQuantity(id, item.quantity, variantId: item.variantId);
+        } else {
+          await notifier.setQuantity(id, item.quantity);
+        }
         added++;
       } catch (_) {
         failed++;

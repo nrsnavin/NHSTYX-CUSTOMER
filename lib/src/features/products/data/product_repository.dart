@@ -33,6 +33,16 @@ class ProductRepository {
     }
   }
 
+  /// A single product with full detail (incl. its store variants).
+  Future<Product> fetchProduct(String id) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('/products/$id');
+      return Product.fromJson(response.data!['data'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
   /// Best-selling products in the customer's city/store.
   Future<List<Product>> fetchBestSelling() => _fetchList('/products/best-selling');
 

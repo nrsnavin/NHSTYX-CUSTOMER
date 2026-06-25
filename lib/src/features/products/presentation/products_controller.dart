@@ -17,6 +17,13 @@ final productsProvider = FutureProvider.autoDispose<List<Product>>((ref) async {
       );
 });
 
+/// Full detail for a single product (incl. its store variants) — backs the
+/// product-detail page's variant selector.
+final productDetailProvider =
+    FutureProvider.autoDispose.family<Product, String>((ref, id) {
+  return ref.watch(productRepositoryProvider).fetchProduct(id);
+});
+
 /// Products for a single category id — backs the dedicated category page.
 /// Tree-aware on the backend (a parent includes its children).
 final categoryProductsProvider =

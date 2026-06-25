@@ -32,10 +32,13 @@ const _methods = [
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
 
-  Future<void> _changeQty(BuildContext context, WidgetRef ref, String productId, int qty) async {
+  Future<void> _changeQty(BuildContext context, WidgetRef ref, CartLine line, int qty) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(cartControllerProvider.notifier).setQuantity(productId, qty);
+      // Variant-aware: targets the exact (product, variant) line.
+      await ref
+          .read(cartControllerProvider.notifier)
+          .setLineQuantity(line.productId, qty, variantId: line.variantId);
       // The cart total changed, so any applied coupon's discount is now stale —
       // drop it and let the customer re-apply against the new total.
       ref.read(appliedCouponProvider.notifier).state = null;
@@ -83,7 +86,9 @@ class CartScreen extends ConsumerWidget {
                     final item = cart.items[index];
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(item.name),
+                      title: Text(item.variantName != null
+                          ? '${item.name} · ${item.variantName}'
+                          : item.name),
                       subtitle: Text(
                         '${formatPaise(item.unitPricePaise)} / ${item.unit.toLowerCase()} · '
                         '${formatPaise(item.lineSubtotalPaise)}',
@@ -93,14 +98,12 @@ class CartScreen extends ConsumerWidget {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.remove_circle_outline),
-                            onPressed: () =>
-                                _changeQty(context, ref, item.productId, item.quantity - 1),
+                            onPressed: () => _changeQty(context, ref, item, item.quantity - 1),
                           ),
                           Text('${item.quantity}'),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline),
-                            onPressed: () =>
-                                _changeQty(context, ref, item.productId, item.quantity + 1),
+                            onPressed: () => _changeQty(context, ref, item, item.quantity + 1),
                           ),
                         ],
                       ),

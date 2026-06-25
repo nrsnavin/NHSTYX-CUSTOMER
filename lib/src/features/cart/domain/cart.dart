@@ -16,12 +16,16 @@ class CartLine {
     required this.stockQty,
     required this.unitPricePaise,
     required this.lineSubtotalPaise,
+    this.variantId,
+    this.variantName,
     this.brand,
     this.imageUrl,
     this.gstRatePercent = 0,
   });
 
   final String productId;
+  final String? variantId;
+  final String? variantName;
   final String name;
   final String unit;
   final int quantity;
@@ -36,6 +40,8 @@ class CartLine {
   factory CartLine.fromJson(Map<String, dynamic> json) {
     return CartLine(
       productId: json['productId'] as String,
+      variantId: json['variantId'] as String?,
+      variantName: json['variantName'] as String?,
       name: (json['name'] ?? '') as String,
       unit: (json['unit'] ?? 'PIECE') as String,
       quantity: _toInt(json['quantity']),

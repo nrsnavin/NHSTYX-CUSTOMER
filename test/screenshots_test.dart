@@ -47,6 +47,9 @@ class _FakeProductRepo implements ProductRepository {
   Future<List<Product>> fetchBestSelling() async => _catalog().take(3).toList();
   @override
   Future<List<Product>> fetchRecentlyOrdered() async => const [];
+  @override
+  Future<Product> fetchProduct(String id) async =>
+      _catalog().firstWhere((p) => p.id == id, orElse: () => _catalog().first);
 }
 
 class _FakeCategoryRepo implements CategoryRepository {

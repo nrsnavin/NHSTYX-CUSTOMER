@@ -12,6 +12,8 @@ class OrderItem {
     required this.unitPricePaise,
     required this.lineTotalPaise,
     this.productId,
+    this.variantId,
+    this.variantName,
   });
 
   final String productName;
@@ -22,6 +24,10 @@ class OrderItem {
   /// The catalog product id, used to re-add the line when reordering.
   final String? productId;
 
+  /// The ordered variant (size/colour), if any.
+  final String? variantId;
+  final String? variantName;
+
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
       productName: (json['productName'] ?? 'Item') as String,
@@ -29,6 +35,8 @@ class OrderItem {
       unitPricePaise: _toInt(json['unitPricePaise']),
       lineTotalPaise: _toInt(json['lineTotalPaise']),
       productId: json['productId'] as String?,
+      variantId: json['variantId'] as String?,
+      variantName: json['variantName'] as String?,
     );
   }
 }
