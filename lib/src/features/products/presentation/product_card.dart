@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/widgets/product_thumb.dart';
 import '../../cart/presentation/cart_controller.dart';
+import '../../wishlist/presentation/wishlist_controller.dart';
 import '../domain/product.dart';
 
 /// Compact storefront grid tile: image, name, price, MOQ, and a quick-add
@@ -20,6 +21,7 @@ class ProductCard extends StatelessWidget {
     final theme = Theme.of(context);
     final hasTiers = product.priceTiers.isNotEmpty;
     final outOfStock = !product.inStock;
+    final discount = product.discountPercent;
 
     return GestureDetector(
       onTap: onTap,
@@ -38,7 +40,10 @@ class ProductCard extends StatelessWidget {
                 children: [
                   ProductThumb(imageUrl: product.imageUrl),
                   if (outOfStock)
-                    Positioned(top: 8, left: 8, child: _badge(context, 'Out of stock')),
+                    Positioned(top: 8, left: 8, child: _badge(context, 'Out of stock'))
+                  else if (discount != null)
+                    Positioned(top: 8, left: 8, child: _discountBadge(context, discount)),
+                  Positioned(top: 6, right: 6, child: _WishlistHeart(productId: product.id)),
                 ],
               ),
             ),
@@ -60,10 +65,28 @@ class ProductCard extends StatelessWidget {
                     children: [
                       Text(formatPaise(product.fromPricePaise), style: theme.textTheme.titleMedium),
                       const SizedBox(width: 4),
-                      Text('/ ${product.unit.toLowerCase()}',
-                          style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
+                      // Selling price + struck-through MRP when there's a saving,
+                      // otherwise the per-unit suffix.
+                      if (discount != null)
+                        Flexible(
+                          child: Text(
+                            formatPaise(product.mrpPaise!),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.hintColor,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                        )
+                      else
+                        Text('/ ${product.unit.toLowerCase()}',
+                            style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
                     ],
                   ),
+                  if (discount != null)
+                    Text('per ${product.unit.toLowerCase()}',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
                   if (hasTiers)
                     Text('Bulk pricing available',
                         style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
@@ -95,6 +118,64 @@ class ProductCard extends StatelessWidget {
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+    );
+  }
+
+  /// Green savings ribbon shown on the image corner, e.g. "20% OFF".
+  Widget _discountBadge(BuildContext context, int percent) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A7F37), // savings green
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '$percent% OFF',
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+          fontSize: 11,
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+}
+
+/// Heart overlay that saves/removes the product from the wishlist. Reads the
+/// shared id set so it reflects (and toggles) state instantly across screens.
+class _WishlistHeart extends ConsumerWidget {
+  const _WishlistHeart({required this.productId});
+  final String productId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final saved = ref.watch(wishlistIdsProvider).valueOrNull?.contains(productId) ?? false;
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface.withValues(alpha: 0.92),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () async {
+          final messenger = ScaffoldMessenger.of(context);
+          try {
+            await ref.read(wishlistIdsProvider.notifier).toggle(productId);
+          } catch (e) {
+            messenger
+              ..hideCurrentSnackBar()
+              ..showSnackBar(SnackBar(content: Text(e.toString())));
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(
+            saved ? Icons.favorite : Icons.favorite_border,
+            size: 18,
+            color: saved ? Colors.red : scheme.onSurfaceVariant,
+          ),
+        ),
+      ),
     );
   }
 }

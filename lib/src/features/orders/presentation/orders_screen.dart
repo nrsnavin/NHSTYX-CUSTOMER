@@ -127,6 +127,10 @@ class _OrderCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final paid = order.paymentStatus == 'PAID';
     final canPayOnline = order.paymentMethod == 'RAZORPAY' && !paid;
+    // The GST invoice is available once the order is confirmed / being fulfilled
+    // (or already paid) — not while it's still PENDING.
+    const fulfilled = {'CONFIRMED', 'PACKED', 'SHIPPED', 'DELIVERED'};
+    final hasInvoice = paid || fulfilled.contains(order.status);
 
     return Card(
       child: Padding(
@@ -202,8 +206,9 @@ class _OrderCard extends ConsumerWidget {
                     label: const Text('Reorder'),
                   ),
                 ),
-                // Invoice is available once payment is confirmed.
-                if (paid) ...[
+                // Invoice is available once the order is confirmed / fulfilled
+                // (or already paid).
+                if (hasInvoice) ...[
                   const SizedBox(width: 10),
                   Expanded(
                     child: OutlinedButton.icon(
