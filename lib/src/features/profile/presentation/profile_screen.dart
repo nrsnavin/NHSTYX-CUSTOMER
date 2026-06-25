@@ -176,13 +176,15 @@ class _MenuGroup extends StatelessWidget {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: theme.colorScheme.outlineVariant),
-        ),
+      // Material (not a coloured Container) is the row backdrop so each
+      // ListTile's ink/highlight paints correctly; it also draws the border.
+      child: Material(
+        color: theme.colorScheme.surface,
         clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
         child: Column(
           children: [
             for (var i = 0; i < children.length; i++) ...[
