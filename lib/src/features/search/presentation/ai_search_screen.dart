@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 import '../../../shared/widgets/skeleton.dart';
+import '../../categories/domain/category.dart';
+import '../../categories/presentation/category_controller.dart';
+import '../../home/presentation/home_screen.dart';
 import '../../products/presentation/product_card.dart';
 import '../../products/presentation/product_detail_screen.dart';
+import '../../products/presentation/products_controller.dart';
 import 'search_controller.dart';
 
 const _examples = [
@@ -25,8 +31,72 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
 
+  final SpeechToText _speech = SpeechToText();
+  bool _speechReady = false;
+  bool _listening = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initSpeech();
+  }
+
+  Future<void> _initSpeech() async {
+    try {
+      _speechReady = await _speech.initialize(
+        onStatus: (s) {
+          if (mounted) setState(() => _listening = s == SpeechToText.listeningStatus);
+        },
+        onError: (_) {
+          if (mounted) setState(() => _listening = false);
+        },
+      );
+    } catch (_) {
+      _speechReady = false;
+    }
+    if (mounted) setState(() {});
+  }
+
+  /// Starts/stops voice capture; speech is transcribed into the field live and
+  /// the search runs on the final result.
+  Future<void> _toggleListen() async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (_listening) {
+      await _speech.stop();
+      return;
+    }
+    if (!_speechReady) await _initSpeech();
+    if (!_speechReady) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('Voice search isn’t available — check microphone permission.')),
+        );
+      return;
+    }
+    _focus.unfocus();
+    setState(() => _listening = true);
+    await _speech.listen(
+      onResult: _onSpeechResult,
+      listenOptions: SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: true,
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _onSpeechResult(SpeechRecognitionResult result) {
+    setState(() => _controller.text = result.recognizedWords);
+    if (result.finalResult && result.recognizedWords.trim().isNotEmpty) {
+      ref.read(searchControllerProvider.notifier).run(result.recognizedWords.trim());
+    }
+  }
+
   @override
   void dispose() {
+    _speech.cancel();
     _controller.dispose();
     _focus.dispose();
     super.dispose();
@@ -36,6 +106,14 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
     _controller.text = q;
     _focus.unfocus();
     ref.read(searchControllerProvider.notifier).run(q);
+  }
+
+  /// Picking a matched category filters the Home tab by it and returns there.
+  void _pickCategory(Category c) {
+    ref.read(productSearchProvider.notifier).state = '';
+    ref.read(selectedCategoryProvider.notifier).state = c;
+    ref.read(homeTabProvider.notifier).state = 0;
+    Navigator.of(context).pop();
   }
 
   @override
@@ -64,13 +142,24 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
             ),
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: _listening ? 'Stop listening' : 'Voice search',
+            icon: Icon(
+              _listening ? Icons.mic : Icons.mic_none,
+              color: _listening ? theme.colorScheme.error : null,
+            ),
+            onPressed: _toggleListen,
+          ),
+        ],
       ),
       body: state.when(
         loading: () => const ProductGridSkeleton(),
         error: (e, _) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(e.toString()))),
         data: (result) {
           if (result == null) return _Suggestions(onTap: _search);
-          if (result.items.isEmpty) {
+          final hasCategories = result.categories.isNotEmpty;
+          if (result.items.isEmpty && !hasCategories) {
             return _Empty(reply: result.reply);
           }
           return CustomScrollView(
@@ -90,6 +179,19 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
                   ),
                 ),
               ),
+              if (hasCategories)
+                SliverToBoxAdapter(
+                  child: _CategoryChips(categories: result.categories, onPick: _pickCategory),
+                ),
+              if (result.items.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text('No products matched — try a category above.',
+                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor)),
+                  ),
+                )
+              else
               SliverPadding(
                 padding: const EdgeInsets.all(16),
                 sliver: SliverGrid(
@@ -116,6 +218,39 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// Matched-category quick filters shown above search results.
+class _CategoryChips extends StatelessWidget {
+  const _CategoryChips({required this.categories, required this.onPick});
+  final List<Category> categories;
+  final void Function(Category) onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Categories', style: theme.textTheme.labelLarge?.copyWith(color: theme.hintColor)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: categories
+                .map((c) => ActionChip(
+                      avatar: const Icon(Icons.category_outlined, size: 16),
+                      label: Text(c.name),
+                      onPressed: () => onPick(c),
+                    ))
+                .toList(),
+          ),
+        ],
       ),
     );
   }

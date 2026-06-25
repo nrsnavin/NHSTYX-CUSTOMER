@@ -16,3 +16,13 @@ final productsProvider = FutureProvider.autoDispose<List<Product>>((ref) async {
         categoryId: category?.id,
       );
 });
+
+/// Best sellers in the customer's city/store (home rail).
+final bestSellingProvider = FutureProvider.autoDispose<List<Product>>((ref) {
+  return ref.watch(productRepositoryProvider).fetchBestSelling();
+});
+
+/// Products the customer ordered before (home rail). Empty for new customers.
+final recentlyOrderedProvider = FutureProvider.autoDispose<List<Product>>((ref) {
+  return ref.watch(productRepositoryProvider).fetchRecentlyOrdered();
+});

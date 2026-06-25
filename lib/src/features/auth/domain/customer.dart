@@ -1,11 +1,20 @@
 /// The store that serves this shop owner (by their city).
 class CustomerStore {
-  const CustomerStore({required this.id, required this.name, required this.city, this.code});
+  const CustomerStore({
+    required this.id,
+    required this.name,
+    required this.city,
+    this.code,
+    this.phone,
+  });
 
   final String id;
   final String name;
   final String city;
   final String? code;
+
+  /// The store/agent contact number — powers the home "call to bulk order".
+  final String? phone;
 
   factory CustomerStore.fromJson(Map<String, dynamic> json) {
     return CustomerStore(
@@ -13,6 +22,7 @@ class CustomerStore {
       name: (json['name'] ?? '') as String,
       city: (json['city'] ?? '') as String,
       code: json['code'] as String?,
+      phone: json['phone'] as String?,
     );
   }
 }

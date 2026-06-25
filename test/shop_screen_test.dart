@@ -28,6 +28,12 @@ class _FakeProductRepo implements ProductRepository {
       ),
     ];
   }
+
+  @override
+  Future<List<Product>> fetchBestSelling() async => const [];
+
+  @override
+  Future<List<Product>> fetchRecentlyOrdered() async => const [];
 }
 
 class _FakeCategoryRepo implements CategoryRepository {

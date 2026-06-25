@@ -30,6 +30,15 @@ dependencies:
   # Formatting (currency, dates)
   intl: ^0.19.0
 
+  # In-app GST invoice PDF viewing (for paid orders)
+  printing: ^5.13.0
+
+  # Voice search (on-device speech-to-text)
+  speech_to_text: ^7.0.0
+
+  # Launch the phone dialer for the 'call to bulk order' button
+  url_launcher: ^6.3.0
+
   cupertino_icons: ^1.0.8
 
 dev_dependencies:

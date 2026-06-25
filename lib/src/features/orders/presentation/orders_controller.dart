@@ -28,10 +28,12 @@ class CheckoutController extends AutoDisposeAsyncNotifier<Order?> {
         paymentMethod: paymentMethod,
         bankReference: bankReference,
       );
-      ref.invalidate(cartControllerProvider);
-      ref.invalidate(ordersProvider);
 
       if (paymentMethod != 'RAZORPAY') {
+        // Order is final the moment it's placed — the server already emptied
+        // the cart, so refresh it (now empty) and the order history.
+        ref.invalidate(cartControllerProvider);
+        ref.invalidate(ordersProvider);
         return checkout.order;
       }
 
@@ -40,6 +42,9 @@ class CheckoutController extends AutoDisposeAsyncNotifier<Order?> {
         throw ApiException('Razorpay checkout details were not returned.');
       }
 
+      // Payment can fail or be cancelled here. If so, pay() throws BEFORE we
+      // touch the cart — the server also keeps it intact until verification —
+      // so the customer keeps their items and can retry.
       final payment = await ref.read(razorpayServiceProvider).pay(razorpay);
       final paidOrder = await ref.read(orderRepositoryProvider).verifyRazorpayPayment(
         orderId: checkout.order.id,
@@ -47,6 +52,8 @@ class CheckoutController extends AutoDisposeAsyncNotifier<Order?> {
         razorpayPaymentId: payment.paymentId,
         razorpaySignature: payment.signature,
       );
+
+      // Paid + verified — the server has now emptied the cart; refresh both.
       ref.invalidate(cartControllerProvider);
       ref.invalidate(ordersProvider);
       return paidOrder;

@@ -32,6 +32,22 @@ class ProductRepository {
       throw ApiException.fromDio(e);
     }
   }
+
+  /// Best-selling products in the customer's city/store.
+  Future<List<Product>> fetchBestSelling() => _fetchList('/products/best-selling');
+
+  /// Products the customer has ordered before (most recent first).
+  Future<List<Product>> fetchRecentlyOrdered() => _fetchList('/products/recently-ordered');
+
+  Future<List<Product>> _fetchList(String path) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(path);
+      final items = response.data?['items'] as List<dynamic>? ?? const [];
+      return items.map((e) => Product.fromJson(e as Map<String, dynamic>)).toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
 }
 
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
