@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../shared/formatters.dart';
 import '../../../shared/widgets/skeleton.dart';
@@ -61,6 +62,7 @@ class ProductsScreen extends ConsumerWidget {
             ),
           ),
           const _CategoryRail(),
+          const _BulkOrderBanner(),
           const SizedBox(height: 4),
           const Expanded(child: _ShopFeed()),
         ],
@@ -387,6 +389,65 @@ class _PastOrdersButton extends ConsumerWidget {
           child: Tooltip(
             message: 'Past orders',
             child: Icon(Icons.receipt_long_outlined, color: scheme.primary, size: 22),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Call-to-bulk-order banner — dials the store's agent so they can place a
+/// large order on the shop's behalf (the customer pays online afterwards).
+class _BulkOrderBanner extends ConsumerWidget {
+  const _BulkOrderBanner();
+
+  Future<void> _call(BuildContext context, String phone) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await launchUrl(Uri(scheme: 'tel', path: phone));
+    if (!ok) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Couldn’t start a call to $phone')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final phone = ref.watch(authControllerProvider).valueOrNull?.store?.phone;
+    if (phone == null || phone.isEmpty) return const SizedBox.shrink();
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Material(
+        color: scheme.primaryContainer,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => _call(context, phone),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            child: Row(
+              children: [
+                Icon(Icons.support_agent, color: scheme.onPrimaryContainer),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Bulk order? Call your agent',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700, color: scheme.onPrimaryContainer)),
+                      Text('They place it for you — pay online after',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: scheme.onPrimaryContainer.withValues(alpha: 0.8))),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(Icons.call, color: scheme.onPrimaryContainer),
+              ],
+            ),
           ),
         ),
       ),

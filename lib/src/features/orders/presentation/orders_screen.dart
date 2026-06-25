@@ -7,6 +7,8 @@ import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../cart/presentation/cart_controller.dart';
 import '../../home/presentation/home_screen.dart';
+import '../data/order_repository.dart';
+import '../data/razorpay_service.dart';
 import '../domain/order.dart';
 import 'invoice_screen.dart';
 import 'orders_controller.dart';
@@ -96,10 +98,35 @@ class _OrderCard extends ConsumerWidget {
     if (added > 0) ref.read(homeTabProvider.notifier).state = 3; // Cart tab
   }
 
+  /// Pays an existing unpaid online order via Razorpay (e.g. an agent-placed
+  /// order): fetch a fresh checkout, open Razorpay, verify, then refresh.
+  Future<void> _pay(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final checkout = await ref.read(orderRepositoryProvider).payRazorpay(order.id);
+      final payment = await ref.read(razorpayServiceProvider).pay(checkout);
+      await ref.read(orderRepositoryProvider).verifyRazorpayPayment(
+            orderId: order.id,
+            razorpayOrderId: payment.orderId,
+            razorpayPaymentId: payment.paymentId,
+            razorpaySignature: payment.signature,
+          );
+      ref.invalidate(ordersProvider);
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Payment successful')));
+    } catch (e) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final paid = order.paymentStatus == 'PAID';
+    final canPayOnline = order.paymentMethod == 'RAZORPAY' && !paid;
 
     return Card(
       child: Padding(
@@ -153,6 +180,18 @@ class _OrderCard extends ConsumerWidget {
                 ),
               ],
             ),
+            // An unpaid online order (e.g. placed by an agent) can be paid here.
+            if (canPayOnline) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => _pay(context, ref),
+                  icon: const Icon(Icons.lock_outline, size: 18),
+                  label: Text('Pay now · ${formatPaise(order.amountDuePaise)}'),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             Row(
               children: [

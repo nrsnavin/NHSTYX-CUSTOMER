@@ -150,6 +150,17 @@ class OrderRepository {
     }
   }
 
+  /// (Re)issues a Razorpay checkout for an existing unpaid online order, so the
+  /// customer can pay it from the Orders screen (e.g. an agent-placed order).
+  Future<RazorpayCheckout> payRazorpay(String orderId) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>('/orders/$orderId/pay/razorpay');
+      return RazorpayCheckout.fromJson(response.data!['data'] as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
   /// Downloads the GST invoice PDF bytes for an order (paid orders only).
   Future<Uint8List> fetchInvoice(String orderId) async {
     try {
