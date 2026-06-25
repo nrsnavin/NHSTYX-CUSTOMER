@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../auth/presentation/auth_controller.dart';
-import '../../categories/presentation/categories_screen.dart';
 import '../../categories/presentation/category_controller.dart';
 import '../../cart/presentation/cart_controller.dart';
 import '../../home/presentation/home_screen.dart';
+import '../../profile/presentation/profile_screen.dart';
 import '../../search/presentation/ai_search_screen.dart';
 import '../domain/product.dart';
 import 'product_card.dart';
@@ -20,6 +20,7 @@ class ProductsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final store = ref.watch(authControllerProvider).valueOrNull?.store;
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -29,18 +30,19 @@ class ProductsScreen extends ConsumerWidget {
           storeName: store?.name,
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.grid_view_outlined),
-            tooltip: 'Categories',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const CategoriesScreen()),
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(22),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              ),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: scheme.primaryContainer,
+                child: Icon(Icons.person, color: scheme.onPrimaryContainer, size: 22),
+              ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.auto_awesome_outlined),
-            color: Theme.of(context).colorScheme.primary,
-            tooltip: 'AI search',
-            onPressed: () => _openSearch(context),
           ),
         ],
       ),
@@ -255,7 +257,7 @@ class _ViewCartBar extends ConsumerWidget {
           color: scheme.primary,
           borderRadius: BorderRadius.circular(14),
           child: InkWell(
-            onTap: () => ref.read(homeTabProvider.notifier).state = 1,
+            onTap: () => ref.read(homeTabProvider.notifier).state = 3,
             borderRadius: BorderRadius.circular(14),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
@@ -360,6 +362,8 @@ class _SearchField extends StatelessWidget {
   }
 }
 
+/// Instamart-style main category tabs: a horizontal row of icon + label
+/// tiles, the selected one highlighted.
 class _CategoryRail extends ConsumerWidget {
   const _CategoryRail();
 
@@ -369,22 +373,26 @@ class _CategoryRail extends ConsumerWidget {
     final selected = ref.watch(selectedCategoryProvider);
 
     return categoriesAsync.maybeWhen(
-      orElse: () => const SizedBox(height: 44),
+      orElse: () => const SizedBox(height: 88),
       data: (categories) {
         return SizedBox(
-          height: 44,
+          height: 88,
           child: ListView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             children: [
-              _Chip(
+              _CategoryTab(
                 label: 'All',
+                icon: Icons.apps,
+                imageUrl: null,
                 selected: selected == null,
                 onTap: () => ref.read(selectedCategoryProvider.notifier).state = null,
               ),
               for (final c in categories)
-                _Chip(
+                _CategoryTab(
                   label: c.name,
+                  icon: Icons.category_outlined,
+                  imageUrl: c.imageUrl,
                   selected: selected?.id == c.id,
                   onTap: () => ref.read(selectedCategoryProvider.notifier).state = c,
                 ),
@@ -396,36 +404,69 @@ class _CategoryRail extends ConsumerWidget {
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({required this.label, required this.selected, required this.onTap});
+class _CategoryTab extends StatelessWidget {
+  const _CategoryTab({
+    required this.label,
+    required this.icon,
+    required this.imageUrl,
+    required this.selected,
+    required this.onTap,
+  });
   final String label;
+  final IconData icon;
+  final String? imageUrl;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: selected ? scheme.primary : scheme.surface,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: selected ? scheme.primary : scheme.outline),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? scheme.onPrimary : scheme.onSurface,
-              fontWeight: FontWeight.w500,
-              fontSize: 13.5,
+    final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 68,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: selected ? scheme.primary : scheme.surfaceContainerHighest,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? scheme.primary : Colors.transparent,
+                  width: 2,
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              alignment: Alignment.center,
+              child: hasImage
+                  ? Image.network(
+                      imageUrl!,
+                      fit: BoxFit.cover,
+                      width: 54,
+                      height: 54,
+                      errorBuilder: (_, __, ___) =>
+                          Icon(icon, color: selected ? scheme.onPrimary : scheme.primary, size: 26),
+                    )
+                  : Icon(icon, color: selected ? scheme.onPrimary : scheme.primary, size: 26),
             ),
-          ),
+            const SizedBox(height: 5),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: selected ? scheme.primary : scheme.onSurface,
+              ),
+            ),
+          ],
         ),
       ),
     );

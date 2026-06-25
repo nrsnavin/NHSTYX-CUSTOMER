@@ -6,6 +6,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../categories/domain/category.dart';
 import '../../categories/presentation/category_controller.dart';
+import '../../home/presentation/home_screen.dart';
 import '../../products/presentation/product_card.dart';
 import '../../products/presentation/product_detail_screen.dart';
 import '../../products/presentation/products_controller.dart';
@@ -107,10 +108,11 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
     ref.read(searchControllerProvider.notifier).run(q);
   }
 
-  /// Picking a matched category filters the Shop tab by it and returns there.
+  /// Picking a matched category filters the Home tab by it and returns there.
   void _pickCategory(Category c) {
     ref.read(productSearchProvider.notifier).state = '';
     ref.read(selectedCategoryProvider.notifier).state = c;
+    ref.read(homeTabProvider.notifier).state = 0;
     Navigator.of(context).pop();
   }
 
