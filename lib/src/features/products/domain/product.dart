@@ -62,6 +62,14 @@ class Product {
     return lowest;
   }
 
+  /// Whole-number discount percent of the displayed (lowest) price against the
+  /// MRP, or null when there's no MRP or no real saving.
+  int? get discountPercent {
+    final mrp = mrpPaise;
+    if (mrp == null || mrp <= fromPricePaise) return null;
+    return ((mrp - fromPricePaise) / mrp * 100).round();
+  }
+
   /// Resolves the per-unit price for a quantity (highest applicable tier wins).
   int unitPricePaiseFor(int quantity) {
     var price = pricePaise;

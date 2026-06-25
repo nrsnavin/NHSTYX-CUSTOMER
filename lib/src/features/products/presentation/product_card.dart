@@ -21,6 +21,7 @@ class ProductCard extends StatelessWidget {
     final theme = Theme.of(context);
     final hasTiers = product.priceTiers.isNotEmpty;
     final outOfStock = !product.inStock;
+    final discount = product.discountPercent;
 
     return GestureDetector(
       onTap: onTap,
@@ -39,7 +40,9 @@ class ProductCard extends StatelessWidget {
                 children: [
                   ProductThumb(imageUrl: product.imageUrl),
                   if (outOfStock)
-                    Positioned(top: 8, left: 8, child: _badge(context, 'Out of stock')),
+                    Positioned(top: 8, left: 8, child: _badge(context, 'Out of stock'))
+                  else if (discount != null)
+                    Positioned(top: 8, left: 8, child: _discountBadge(context, discount)),
                   Positioned(top: 6, right: 6, child: _WishlistHeart(productId: product.id)),
                 ],
               ),
@@ -62,10 +65,28 @@ class ProductCard extends StatelessWidget {
                     children: [
                       Text(formatPaise(product.fromPricePaise), style: theme.textTheme.titleMedium),
                       const SizedBox(width: 4),
-                      Text('/ ${product.unit.toLowerCase()}',
-                          style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
+                      // Selling price + struck-through MRP when there's a saving,
+                      // otherwise the per-unit suffix.
+                      if (discount != null)
+                        Flexible(
+                          child: Text(
+                            formatPaise(product.mrpPaise!),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.hintColor,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                        )
+                      else
+                        Text('/ ${product.unit.toLowerCase()}',
+                            style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
                     ],
                   ),
+                  if (discount != null)
+                    Text('per ${product.unit.toLowerCase()}',
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
                   if (hasTiers)
                     Text('Bulk pricing available',
                         style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
@@ -97,6 +118,26 @@ class ProductCard extends StatelessWidget {
         border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
       ),
       child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+    );
+  }
+
+  /// Green savings ribbon shown on the image corner, e.g. "20% OFF".
+  Widget _discountBadge(BuildContext context, int percent) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A7F37), // savings green
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '$percent% OFF',
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+          fontSize: 11,
+          letterSpacing: 0.2,
+        ),
+      ),
     );
   }
 }
