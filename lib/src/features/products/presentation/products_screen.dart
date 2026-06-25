@@ -49,10 +49,16 @@ class ProductsScreen extends ConsumerWidget {
       bottomNavigationBar: const _ViewCartBar(),
       body: Column(
         children: [
-          // Tappable AI search field
+          // Tappable AI search field + quick "past orders / reorder" button
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: _SearchField(onTap: () => _openSearch(context)),
+            child: Row(
+              children: [
+                Expanded(child: _SearchField(onTap: () => _openSearch(context))),
+                const SizedBox(width: 10),
+                const _PastOrdersButton(),
+              ],
+            ),
           ),
           const _CategoryRail(),
           const SizedBox(height: 4),
@@ -356,6 +362,32 @@ class _SearchField extends StatelessWidget {
               style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Quick access to past purchases (the Reorder tab) right beside the search bar.
+class _PastOrdersButton extends ConsumerWidget {
+  const _PastOrdersButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => ref.read(homeTabProvider.notifier).state = 2, // Reorder tab
+        child: SizedBox(
+          height: 48,
+          width: 48,
+          child: Tooltip(
+            message: 'Past orders',
+            child: Icon(Icons.receipt_long_outlined, color: scheme.primary, size: 22),
+          ),
         ),
       ),
     );

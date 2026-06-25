@@ -11,6 +11,7 @@ class OrderItem {
     required this.quantity,
     required this.unitPricePaise,
     required this.lineTotalPaise,
+    this.productId,
   });
 
   final String productName;
@@ -18,12 +19,16 @@ class OrderItem {
   final int unitPricePaise;
   final int lineTotalPaise;
 
+  /// The catalog product id, used to re-add the line when reordering.
+  final String? productId;
+
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
       productName: (json['productName'] ?? 'Item') as String,
       quantity: _toInt(json['quantity']),
       unitPricePaise: _toInt(json['unitPricePaise']),
       lineTotalPaise: _toInt(json['lineTotalPaise']),
+      productId: json['productId'] as String?,
     );
   }
 }

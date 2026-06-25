@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/skeleton.dart';
+import '../../cart/presentation/cart_controller.dart';
+import '../../home/presentation/home_screen.dart';
 import '../domain/order.dart';
 import 'invoice_screen.dart';
 import 'orders_controller.dart';
@@ -60,13 +62,42 @@ class _NoOrders extends StatelessWidget {
   }
 }
 
-class _OrderCard extends StatelessWidget {
+class _OrderCard extends ConsumerWidget {
   const _OrderCard({required this.order});
 
   final Order order;
 
+  /// Re-adds every line of this order to the cart, then jumps to the Cart tab.
+  Future<void> _reorder(BuildContext context, WidgetRef ref) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final notifier = ref.read(cartControllerProvider.notifier);
+    var added = 0;
+    var failed = 0;
+    for (final item in order.items) {
+      final id = item.productId;
+      if (id == null) {
+        failed++;
+        continue;
+      }
+      try {
+        await notifier.setQuantity(id, item.quantity);
+        added++;
+      } catch (_) {
+        failed++;
+      }
+    }
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(
+      content: Text(added > 0
+          ? 'Added $added item${added == 1 ? '' : 's'} to cart'
+              '${failed > 0 ? ' · $failed unavailable' : ''}'
+          : 'Those items are no longer available in your store'),
+    ));
+    if (added > 0) ref.read(homeTabProvider.notifier).state = 3; // Cart tab
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final paid = order.paymentStatus == 'PAID';
 
@@ -122,20 +153,31 @@ class _OrderCard extends StatelessWidget {
                 ),
               ],
             ),
-            // Invoice is available once payment is confirmed.
-            if (paid) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => InvoiceScreen(order: order)),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: () => _reorder(context, ref),
+                    icon: const Icon(Icons.replay, size: 18),
+                    label: const Text('Reorder'),
                   ),
-                  icon: const Icon(Icons.receipt_long_outlined, size: 18),
-                  label: const Text('View invoice'),
                 ),
-              ),
-            ],
+                // Invoice is available once payment is confirmed.
+                if (paid) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => InvoiceScreen(order: order)),
+                      ),
+                      icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                      label: const Text('Invoice'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ],
         ),
       ),
