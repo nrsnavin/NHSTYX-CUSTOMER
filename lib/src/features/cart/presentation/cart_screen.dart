@@ -180,13 +180,19 @@ class _CheckoutPanelState extends ConsumerState<_CheckoutPanel> {
     return Material(
       elevation: 8,
       child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Delivery address
+        // Cap the panel and let it scroll: keeps a definite size (so the
+        // elevation Material can always paint its shadow) and avoids overflow
+        // when the keyboard is up or the content is tall.
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Delivery address
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.location_on_outlined),
@@ -280,7 +286,9 @@ class _CheckoutPanelState extends ConsumerState<_CheckoutPanel> {
                         height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Text('Place order'),
               ),
-            ],
+                ],
+              ),
+            ),
           ),
         ),
       ),
