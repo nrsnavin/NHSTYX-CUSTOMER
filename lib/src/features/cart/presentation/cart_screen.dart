@@ -476,6 +476,10 @@ class _CouponField extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         SizedBox(
+          // Bounded width: the app theme gives FilledButton a full-width
+          // minimumSize (Size.fromHeight), which demands infinite width when
+          // the button is a non-flex child of a Row and crashes layout.
+          width: 96,
           height: 48,
           child: FilledButton.tonal(
             onPressed: applying ? null : onApply,
