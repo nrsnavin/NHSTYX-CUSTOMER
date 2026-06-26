@@ -13,6 +13,11 @@ class ProductRepository {
   Future<List<Product>> fetchProducts({
     String? search,
     String? categoryId,
+    String? sort,
+    String? brand,
+    int? minPricePaise,
+    int? maxPricePaise,
+    bool inStock = false,
     int page = 1,
     int limit = 40,
   }) async {
@@ -24,10 +29,26 @@ class ProductRepository {
           'limit': limit,
           if (search != null && search.isNotEmpty) 'search': search,
           if (categoryId != null) 'categoryId': categoryId,
+          if (sort != null) 'sort': sort,
+          if (brand != null && brand.isNotEmpty) 'brand': brand,
+          if (minPricePaise != null) 'minPricePaise': minPricePaise,
+          if (maxPricePaise != null) 'maxPricePaise': maxPricePaise,
+          if (inStock) 'inStock': 'true',
         },
       );
       final items = response.data!['items'] as List<dynamic>;
       return items.map((e) => Product.fromJson(e as Map<String, dynamic>)).toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  /// Distinct brands the customer's store stocks (for the catalog filter).
+  Future<List<String>> fetchBrands() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('/products/brands');
+      final items = response.data?['items'] as List<dynamic>? ?? const [];
+      return items.map((e) => e as String).toList();
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }

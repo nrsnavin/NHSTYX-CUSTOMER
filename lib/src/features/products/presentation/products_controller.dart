@@ -31,6 +31,36 @@ final categoryProductsProvider =
   return ref.watch(productRepositoryProvider).fetchProducts(categoryId: categoryId, limit: 100);
 });
 
+/// A filter + sort query for the category page. A record gives value equality,
+/// so the provider caches one result per distinct selection.
+typedef ProductQuery = ({
+  String categoryId,
+  String sort,
+  String? brand,
+  int? minPaise,
+  int? maxPaise,
+  bool inStock,
+});
+
+/// Category products under an active filter + sort selection.
+final filteredCategoryProductsProvider =
+    FutureProvider.autoDispose.family<List<Product>, ProductQuery>((ref, q) {
+  return ref.watch(productRepositoryProvider).fetchProducts(
+        categoryId: q.categoryId,
+        sort: q.sort,
+        brand: q.brand,
+        minPricePaise: q.minPaise,
+        maxPricePaise: q.maxPaise,
+        inStock: q.inStock,
+        limit: 100,
+      );
+});
+
+/// Distinct brands the customer's store stocks (powers the brand filter).
+final storeBrandsProvider = FutureProvider.autoDispose<List<String>>((ref) {
+  return ref.watch(productRepositoryProvider).fetchBrands();
+});
+
 /// Best sellers in the customer's city/store (home rail).
 final bestSellingProvider = FutureProvider.autoDispose<List<Product>>((ref) {
   return ref.watch(productRepositoryProvider).fetchBestSelling();
