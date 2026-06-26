@@ -152,6 +152,29 @@ class OrderRepository {
     }
   }
 
+  /// Raises a return against an order for the given lines (orderItemId → qty).
+  Future<void> requestReturn({
+    required String orderId,
+    required Map<String, int> items,
+    String? reason,
+  }) async {
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '/returns',
+        data: {
+          'orderId': orderId,
+          if (reason != null && reason.isNotEmpty) 'reason': reason,
+          'items': items.entries
+              .where((e) => e.value > 0)
+              .map((e) => {'orderItemId': e.key, 'quantity': e.value})
+              .toList(),
+        },
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
   /// (Re)issues a Razorpay checkout for an existing unpaid online order, so the
   /// customer can pay it from the Orders screen (e.g. an agent-placed order).
   Future<RazorpayCheckout> payRazorpay(String orderId) async {

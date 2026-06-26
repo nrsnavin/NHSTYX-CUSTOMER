@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../shared/formatters.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../cart/presentation/cart_controller.dart';
 import '../../home/presentation/home_screen.dart';
+import '../../notifications/presentation/notifications_controller.dart';
+import '../../notifications/presentation/notifications_screen.dart';
 import '../data/order_repository.dart';
 import '../data/razorpay_service.dart';
 import '../domain/order.dart';
 import 'invoice_screen.dart';
 import 'orders_controller.dart';
+import 'request_return_sheet.dart';
 
 class OrdersScreen extends ConsumerWidget {
   const OrdersScreen({super.key});
@@ -21,7 +25,10 @@ class OrdersScreen extends ConsumerWidget {
     final ordersAsync = ref.watch(ordersProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Your orders')),
+      appBar: AppBar(
+        title: const Text('Your orders'),
+        actions: const [_NotificationsBell()],
+      ),
       body: AsyncValueView<List<Order>>(
         value: ordersAsync,
         onRetry: () => ref.invalidate(ordersProvider),
@@ -39,6 +46,30 @@ class OrdersScreen extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+/// Bell on the Orders tab — opens the notifications feed with an unread badge.
+class _NotificationsBell extends ConsumerWidget {
+  const _NotificationsBell();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = ref.watch(unreadNotificationsProvider).valueOrNull ?? 0;
+    return IconButton(
+      icon: Badge(
+        isLabelVisible: unread > 0,
+        label: Text('$unread'),
+        child: const Icon(Icons.notifications_outlined),
+      ),
+      tooltip: 'Notifications',
+      onPressed: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+        );
+        ref.invalidate(unreadNotificationsProvider);
+      },
     );
   }
 }
@@ -234,6 +265,10 @@ class _OrderCard extends ConsumerWidget {
                     ),
                   ],
                 ),
+                if (order.hasTracking) ...[
+                  const SizedBox(height: 10),
+                  _TrackingRow(order: order),
+                ],
                 const SizedBox(height: 12),
                 if (canPayOnline) ...[
                   SizedBox(
@@ -269,6 +304,17 @@ class _OrderCard extends ConsumerWidget {
                     ],
                   ],
                 ),
+                if (order.isReturnable) ...[
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      onPressed: () => showRequestReturnSheet(context, order),
+                      icon: const Icon(Icons.assignment_return_outlined, size: 18),
+                      label: const Text('Request a return'),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -299,5 +345,51 @@ class _OrderCard extends ConsumerWidget {
     }).toList();
     final extra = order.items.length - 3;
     return extra > 0 ? '${parts.join(', ')} +$extra more' : parts.join(', ');
+  }
+}
+
+/// Compact courier + AWB strip with a "Track" link, shown once an order ships.
+class _TrackingRow extends StatelessWidget {
+  const _TrackingRow({required this.order});
+
+  final Order order;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final url = order.trackingUrl;
+    final label = [
+      if ((order.courierName ?? '').isNotEmpty) order.courierName!,
+      if ((order.trackingNumber ?? '').isNotEmpty) 'AWB ${order.trackingNumber}',
+    ].join(' · ');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B6BCB).withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.local_shipping_outlined, size: 18, color: Color(0xFF0B6BCB)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label.isEmpty ? 'Shipment on the way' : label,
+              style: theme.textTheme.bodySmall,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (url != null && url.isNotEmpty)
+            TextButton(
+              onPressed: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                minimumSize: const Size(0, 32),
+              ),
+              child: const Text('Track'),
+            ),
+        ],
+      ),
+    );
   }
 }

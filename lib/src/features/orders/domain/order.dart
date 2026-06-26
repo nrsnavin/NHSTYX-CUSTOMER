@@ -11,11 +11,14 @@ class OrderItem {
     required this.quantity,
     required this.unitPricePaise,
     required this.lineTotalPaise,
+    this.id,
     this.productId,
     this.variantId,
     this.variantName,
   });
 
+  /// The order-line id — needed to raise a return against this line.
+  final String? id;
   final String productName;
   final int quantity;
   final int unitPricePaise;
@@ -30,6 +33,7 @@ class OrderItem {
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
+      id: json['id'] as String?,
       productName: (json['productName'] ?? 'Item') as String,
       quantity: _toInt(json['quantity']),
       unitPricePaise: _toInt(json['unitPricePaise']),
@@ -56,6 +60,11 @@ class Order {
     this.sgstPaise = 0,
     this.igstPaise = 0,
     this.items = const [],
+    this.courierName,
+    this.trackingNumber,
+    this.trackingUrl,
+    this.shippedAt,
+    this.deliveredAt,
   });
 
   final String id;
@@ -72,9 +81,24 @@ class Order {
   final DateTime createdAt;
   final List<OrderItem> items;
 
+  /// Shipment tracking (set when the order is dispatched).
+  final String? courierName;
+  final String? trackingNumber;
+  final String? trackingUrl;
+  final DateTime? shippedAt;
+  final DateTime? deliveredAt;
+
   int get taxPaise => cgstPaise + sgstPaise + igstPaise;
 
+  bool get hasTracking => (trackingNumber ?? '').isNotEmpty;
+
+  /// Whether the shop can raise a return (fulfilled, not cancelled/returned).
+  bool get isReturnable =>
+      const {'CONFIRMED', 'PACKED', 'SHIPPED', 'DELIVERED'}.contains(status);
+
   factory Order.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(dynamic v) =>
+        v is String && v.isNotEmpty ? DateTime.tryParse(v) : null;
     return Order(
       id: json['id'] as String,
       orderNumber: json['orderNumber'] as String,
@@ -91,6 +115,11 @@ class Order {
       items: (json['items'] as List<dynamic>? ?? [])
           .map((e) => OrderItem.fromJson(e as Map<String, dynamic>))
           .toList(),
+      courierName: json['courierName'] as String?,
+      trackingNumber: json['trackingNumber'] as String?,
+      trackingUrl: json['trackingUrl'] as String?,
+      shippedAt: parseDate(json['shippedAt']),
+      deliveredAt: parseDate(json['deliveredAt']),
     );
   }
 }
