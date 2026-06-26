@@ -5,6 +5,12 @@ int _toInt(dynamic value) {
   return 0;
 }
 
+double _toDouble(dynamic value) {
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value) ?? 0;
+  return 0;
+}
+
 class PriceTier {
   const PriceTier({required this.minQty, required this.pricePaise});
 
@@ -77,6 +83,8 @@ class Product {
     this.priceTiers = const [],
     this.hasVariants = false,
     this.variants = const [],
+    this.ratingAvg = 0,
+    this.ratingCount = 0,
   });
 
   final String id;
@@ -100,6 +108,12 @@ class Product {
   /// product-detail fetch.
   final bool hasVariants;
   final List<ProductVariant> variants;
+
+  /// Average star rating (0 when no reviews) and the number of reviews.
+  final double ratingAvg;
+  final int ratingCount;
+
+  bool get hasRatings => ratingCount > 0;
 
   bool get inStock => stockQty > 0;
 
@@ -159,6 +173,8 @@ class Product {
       variants: (json['variants'] as List<dynamic>? ?? const [])
           .map((e) => ProductVariant.fromJson(e as Map<String, dynamic>))
           .toList(),
+      ratingAvg: _toDouble(json['ratingAvg']),
+      ratingCount: _toInt(json['ratingCount']),
     );
   }
 }

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../shared/formatters.dart';
 import '../../../shared/widgets/product_thumb.dart';
 import '../../cart/presentation/cart_controller.dart';
+import '../data/product_repository.dart';
 import '../domain/product.dart';
+import '../domain/review.dart';
 import 'products_controller.dart';
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
@@ -148,6 +151,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   const SizedBox(height: 6),
                   Text(p.description!, style: theme.textTheme.bodyMedium),
                 ],
+                const SizedBox(height: 24),
+                _ReviewsSection(productId: p.id),
                 const SizedBox(height: 90),
               ],
             ),
@@ -336,6 +341,207 @@ class _Stepper extends StatelessWidget {
           IconButton(onPressed: onDec, icon: const Icon(Icons.remove), visualDensity: VisualDensity.compact),
           Text('$qty', style: theme.textTheme.titleMedium),
           IconButton(onPressed: onInc, icon: const Icon(Icons.add), visualDensity: VisualDensity.compact),
+        ],
+      ),
+    );
+  }
+}
+
+// ---- Reviews ----------------------------------------------------------------
+
+class _ReviewsSection extends ConsumerWidget {
+  const _ReviewsSection({required this.productId});
+  final String productId;
+
+  Future<void> _write(
+    BuildContext context,
+    WidgetRef ref,
+    ({int rating, String? comment})? existing,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    int rating = existing?.rating ?? 0;
+    final controller = TextEditingController(text: existing?.comment ?? '');
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: StatefulBuilder(
+          builder: (ctx, setSheet) => SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Rate this product',
+                      style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      for (var i = 1; i <= 5; i++)
+                        IconButton(
+                          onPressed: () => setSheet(() => rating = i),
+                          icon: Icon(
+                            i <= rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                            size: 38,
+                            color: const Color(0xFFF5A623),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: controller,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      hintText: 'Share your experience (optional)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: rating == 0 ? null : () => Navigator.pop(ctx, true),
+                      child: Text(existing == null ? 'Submit review' : 'Update review'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (ok == true && rating > 0) {
+      try {
+        await ref
+            .read(productRepositoryProvider)
+            .submitReview(productId, rating: rating, comment: controller.text.trim());
+        ref.invalidate(productReviewsProvider(productId));
+        ref.invalidate(myReviewProvider(productId));
+        ref.invalidate(productDetailProvider(productId));
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(content: Text('Thanks for your review!')));
+      } catch (e) {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final reviewsAsync = ref.watch(productReviewsProvider(productId));
+    final mine = ref.watch(myReviewProvider(productId)).valueOrNull;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Ratings & reviews', style: theme.textTheme.titleSmall),
+            TextButton.icon(
+              onPressed: () => _write(context, ref, mine),
+              icon: Icon(mine == null ? Icons.rate_review_outlined : Icons.edit_outlined, size: 18),
+              label: Text(mine == null ? 'Write a review' : 'Edit'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        reviewsAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: LinearProgressIndicator(),
+          ),
+          error: (_, __) => Text("Couldn't load reviews",
+              style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor)),
+          data: (summary) {
+            if (summary.count == 0) {
+              return Text('No reviews yet — be the first to rate this product.',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor));
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(summary.avg.toStringAsFixed(1),
+                        style: theme.textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800)),
+                    const SizedBox(width: 8),
+                    _Stars(rating: summary.avg),
+                    const SizedBox(width: 8),
+                    Text('${summary.count} review${summary.count == 1 ? '' : 's'}',
+                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                for (final r in summary.items.take(8)) _ReviewTile(review: r),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _Stars extends StatelessWidget {
+  const _Stars({required this.rating, this.size = 18});
+  final double rating;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 1; i <= 5; i++)
+          Icon(
+            i <= rating.round() ? Icons.star_rounded : Icons.star_outline_rounded,
+            size: size,
+            color: const Color(0xFFF5A623),
+          ),
+      ],
+    );
+  }
+}
+
+class _ReviewTile extends StatelessWidget {
+  const _ReviewTile({required this.review});
+  final ProductReview review;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _Stars(rating: review.rating.toDouble(), size: 15),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(review.shopName,
+                    style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis),
+              ),
+              Text(DateFormat('dd MMM yyyy').format(review.createdAt),
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
+            ],
+          ),
+          if ((review.comment ?? '').isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(review.comment!, style: theme.textTheme.bodyMedium),
+          ],
         ],
       ),
     );

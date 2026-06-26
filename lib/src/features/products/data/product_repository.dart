@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/dio_client.dart';
 import '../domain/product.dart';
+import '../domain/review.dart';
 
 class ProductRepository {
   ProductRepository(this._dio);
@@ -69,6 +70,40 @@ class ProductRepository {
 
   /// Products the customer has ordered before (most recent first).
   Future<List<Product>> fetchRecentlyOrdered() => _fetchList('/products/recently-ordered');
+
+  /// A product's rating summary + recent reviews.
+  Future<ReviewSummary> fetchReviews(String productId) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('/products/$productId/reviews');
+      return ReviewSummary.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  /// The shop's own review for a product (to prefill the form), or null.
+  Future<({int rating, String? comment})?> fetchMyReview(String productId) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('/products/$productId/reviews/mine');
+      final data = response.data?['data'] as Map<String, dynamic>?;
+      if (data == null) return null;
+      return (rating: (data['rating'] as num).toInt(), comment: data['comment'] as String?);
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  /// Create or update the shop's review for a product.
+  Future<void> submitReview(String productId, {required int rating, String? comment}) async {
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '/products/$productId/reviews',
+        data: {'rating': rating, if (comment != null && comment.isNotEmpty) 'comment': comment},
+      );
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
 
   Future<List<Product>> _fetchList(String path) async {
     try {

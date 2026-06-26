@@ -58,6 +58,22 @@ class ProductCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (product.hasRatings) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.star_rounded, size: 15, color: Color(0xFFF5A623)),
+                        const SizedBox(width: 2),
+                        Text(
+                          product.ratingAvg.toStringAsFixed(1),
+                          style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(width: 4),
+                        Text('(${product.ratingCount})',
+                            style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 6),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.baseline,

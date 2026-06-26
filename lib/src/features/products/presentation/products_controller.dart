@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../categories/presentation/category_controller.dart';
 import '../data/product_repository.dart';
 import '../domain/product.dart';
+import '../domain/review.dart';
 
 /// Free-text filter typed on the Shop tab's inline search field.
 final productSearchProvider = StateProvider<String>((ref) => '');
@@ -59,6 +60,18 @@ final filteredCategoryProductsProvider =
 /// Distinct brands the customer's store stocks (powers the brand filter).
 final storeBrandsProvider = FutureProvider.autoDispose<List<String>>((ref) {
   return ref.watch(productRepositoryProvider).fetchBrands();
+});
+
+/// A product's rating summary + recent reviews.
+final productReviewsProvider =
+    FutureProvider.autoDispose.family<ReviewSummary, String>((ref, productId) {
+  return ref.watch(productRepositoryProvider).fetchReviews(productId);
+});
+
+/// The shop's own review for a product (null if not yet reviewed).
+final myReviewProvider =
+    FutureProvider.autoDispose.family<({int rating, String? comment})?, String>((ref, productId) {
+  return ref.watch(productRepositoryProvider).fetchMyReview(productId);
 });
 
 /// Best sellers in the customer's city/store (home rail).
