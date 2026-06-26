@@ -33,11 +33,31 @@ const _methods = [
       Icons.account_balance_outlined),
 ];
 
-class CartScreen extends ConsumerWidget {
+/// The cart screen. Cart lines + the full checkout form scroll together in the
+/// body; only a compact, intrinsically-sized total + "Place order" bar is
+/// pinned in the bottomNavigationBar. (A scrollable/fractional-height panel in
+/// the bottom slot has no determinable size under the home shell's IndexedStack
+/// and triggers a `hasSize` paint assertion — so we keep the pinned bar simple.)
+class CartScreen extends ConsumerStatefulWidget {
   const CartScreen({super.key});
 
-  Future<void> _changeQty(
-      BuildContext context, WidgetRef ref, CartLine line, int qty) async {
+  @override
+  ConsumerState<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends ConsumerState<CartScreen> {
+  final _bankRef = TextEditingController();
+  final _coupon = TextEditingController();
+  bool _applyingCoupon = false;
+
+  @override
+  void dispose() {
+    _bankRef.dispose();
+    _coupon.dispose();
+    super.dispose();
+  }
+
+  Future<void> _changeQty(CartLine line, int qty) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
       // Variant-aware: targets the exact (product, variant) line.
@@ -54,8 +74,30 @@ class CartScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _applyCoupon() async {
+    final code = _coupon.text.trim();
+    if (code.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _applyingCoupon = true);
+    try {
+      final applied = await ref.read(couponRepositoryProvider).validate(code);
+      ref.read(appliedCouponProvider.notifier).state = applied;
+      _coupon.clear();
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Coupon ${applied.code} applied')));
+    } catch (e) {
+      ref.read(appliedCouponProvider.notifier).state = null;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _applyingCoupon = false);
+    }
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final cartAsync = ref.watch(cartControllerProvider);
 
     ref.listen(checkoutControllerProvider, (_, next) {
@@ -81,100 +123,138 @@ class CartScreen extends ConsumerWidget {
         loading: () => const ListCardSkeleton(itemCount: 4, height: 64),
         data: (cart) {
           if (cart.isEmpty) return const _EmptyCart();
-          return ListView.separated(
-            padding: const EdgeInsets.all(12),
-            itemCount: cart.items.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final item = cart.items[index];
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(item.variantName != null
-                    ? '${item.name} · ${item.variantName}'
-                    : item.name),
-                subtitle: Text(
-                  '${formatPaise(item.unitPricePaise)} / ${item.unit.toLowerCase()} · '
-                  '${formatPaise(item.lineSubtotalPaise)}',
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.remove_circle_outline),
-                      onPressed: () =>
-                          _changeQty(context, ref, item, item.quantity - 1),
-                    ),
-                    Text('${item.quantity}'),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle_outline),
-                      onPressed: () =>
-                          _changeQty(context, ref, item, item.quantity + 1),
-                    ),
-                  ],
-                ),
-              );
-            },
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+            children: [
+              for (final item in cart.items) ...[
+                _cartLine(item),
+                const Divider(height: 1),
+              ],
+              const SizedBox(height: 12),
+              ..._checkoutForm(cart),
+            ],
           );
         },
       ),
-      // The checkout panel lives in the bottomNavigationBar slot (not the body)
-      // so it's given a bounded height — which also shrinks when the keyboard is
-      // up — letting its internal scroll fit the space instead of overflowing an
-      // unbounded Column and leaving an unsized box (the hit-test crash).
+      // Compact, fixed-content bar — intrinsically sized, so it lays out cleanly
+      // in the bottom slot even inside the shell's IndexedStack.
       bottomNavigationBar: cartAsync.maybeWhen(
         data: (cart) =>
-            cart.isEmpty ? null : _CheckoutPanel(subtotalPaise: cart.subtotalPaise),
+            cart.isEmpty ? null : _placeOrderBar(cart),
         orElse: () => null,
       ),
     );
   }
-}
 
-class _CheckoutPanel extends ConsumerStatefulWidget {
-  const _CheckoutPanel({required this.subtotalPaise});
-  final int subtotalPaise;
-
-  @override
-  ConsumerState<_CheckoutPanel> createState() => _CheckoutPanelState();
-}
-
-class _CheckoutPanelState extends ConsumerState<_CheckoutPanel> {
-  final _bankRef = TextEditingController();
-  final _coupon = TextEditingController();
-  bool _applyingCoupon = false;
-
-  @override
-  void dispose() {
-    _bankRef.dispose();
-    _coupon.dispose();
-    super.dispose();
+  Widget _cartLine(CartLine item) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(item.variantName != null
+          ? '${item.name} · ${item.variantName}'
+          : item.name),
+      subtitle: Text(
+        '${formatPaise(item.unitPricePaise)} / ${item.unit.toLowerCase()} · '
+        '${formatPaise(item.lineSubtotalPaise)}',
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.remove_circle_outline),
+            onPressed: () => _changeQty(item, item.quantity - 1),
+          ),
+          Text('${item.quantity}'),
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            onPressed: () => _changeQty(item, item.quantity + 1),
+          ),
+        ],
+      ),
+    );
   }
 
-  Future<void> _applyCoupon() async {
-    final code = _coupon.text.trim();
-    if (code.isEmpty) return;
-    final messenger = ScaffoldMessenger.of(context);
-    setState(() => _applyingCoupon = true);
-    try {
-      final applied = await ref.read(couponRepositoryProvider).validate(code);
-      ref.read(appliedCouponProvider.notifier).state = applied;
-      _coupon.clear();
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-            SnackBar(content: Text('Coupon ${applied.code} applied')));
-    } catch (e) {
-      ref.read(appliedCouponProvider.notifier).state = null;
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(e.toString())));
-    } finally {
-      if (mounted) setState(() => _applyingCoupon = false);
-    }
+  /// Address + payment method + coupon — the part that scrolls with the cart.
+  List<Widget> _checkoutForm(Cart cart) {
+    final theme = Theme.of(context);
+    final address = ref.watch(defaultAddressProvider);
+    final method = ref.watch(selectedPaymentProvider);
+    final customer = ref.watch(authControllerProvider).valueOrNull;
+    final coupon = ref.watch(appliedCouponProvider);
+
+    final creditApproved = customer?.creditApproved ?? false;
+    final creditLimit = customer?.creditLimitPaise ?? 0;
+    final creditBlocked = method == 'CREDIT' && !creditApproved;
+
+    return [
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.location_on_outlined),
+        title: Text(address == null ? 'Add a delivery address' : 'Deliver to'),
+        subtitle:
+            Text(address?.summary ?? 'Required to place your order'),
+        trailing: TextButton(
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const AddAddressScreen()),
+          ),
+          child: Text(address == null ? 'Add' : 'Change'),
+        ),
+      ),
+      const SizedBox(height: 4),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: Text('Payment method', style: theme.textTheme.labelLarge),
+      ),
+      const SizedBox(height: 8),
+      for (final m in _methods)
+        _PaymentTile(
+          method: m,
+          selected: method == m.code,
+          enabled: m.code != 'CREDIT' || creditApproved,
+          trailing: m.code == 'CREDIT' && creditApproved
+              ? 'up to ${formatPaise(creditLimit)}'
+              : m.code == 'CREDIT'
+                  ? 'Not approved'
+                  : null,
+          onTap: () =>
+              ref.read(selectedPaymentProvider.notifier).state = m.code,
+        ),
+      if (method == 'BANK_TRANSFER') ...[
+        const SizedBox(height: 8),
+        TextField(
+          controller: _bankRef,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            labelText: 'Transfer reference (UTR / txn id)',
+            helperText:
+                'Enter the reference after you transfer; we verify and confirm.',
+            prefixIcon: Icon(Icons.tag),
+          ),
+        ),
+      ],
+      if (creditBlocked)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text('Credit isn\'t approved for your shop yet.',
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.error)),
+        ),
+      const SizedBox(height: 12),
+      _CouponField(
+        applied: coupon,
+        controller: _coupon,
+        applying: _applyingCoupon,
+        onApply: _applyCoupon,
+        onRemove: () =>
+            ref.read(appliedCouponProvider.notifier).state = null,
+      ),
+      const SizedBox(height: 12),
+      Text('GST is added at checkout based on your delivery state.',
+          style: theme.textTheme.bodySmall),
+    ];
   }
 
-  @override
-  Widget build(BuildContext context) {
+  /// Pinned summary + CTA. Reads the same providers so it enables/disables live.
+  Widget _placeOrderBar(Cart cart) {
     final theme = Theme.of(context);
     final address = ref.watch(defaultAddressProvider);
     final method = ref.watch(selectedPaymentProvider);
@@ -183,7 +263,6 @@ class _CheckoutPanelState extends ConsumerState<_CheckoutPanel> {
     final coupon = ref.watch(appliedCouponProvider);
 
     final creditApproved = customer?.creditApproved ?? false;
-    final creditLimit = customer?.creditLimitPaise ?? 0;
     final bankRefMissing =
         method == 'BANK_TRANSFER' && _bankRef.text.trim().isEmpty;
     final creditBlocked = method == 'CREDIT' && !creditApproved;
@@ -195,133 +274,64 @@ class _CheckoutPanelState extends ConsumerState<_CheckoutPanel> {
     return Material(
       elevation: 8,
       child: SafeArea(
-        child: ConstrainedBox(
-            constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.7),
-            child: SingleChildScrollView(
-                child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Delivery address
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.location_on_outlined),
-                    title: Text(address == null
-                        ? 'Add a delivery address'
-                        : 'Deliver to'),
-                    subtitle: Text(
-                        address?.summary ?? 'Required to place your order'),
-                    trailing: TextButton(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const AddAddressScreen()),
-                      ),
-                      child: Text(address == null ? 'Add' : 'Change'),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('Payment method',
-                        style: theme.textTheme.labelLarge),
-                  ),
-                  const SizedBox(height: 8),
-                  for (final m in _methods)
-                    _PaymentTile(
-                      method: m,
-                      selected: method == m.code,
-                      enabled: m.code != 'CREDIT' || creditApproved,
-                      trailing: m.code == 'CREDIT' && creditApproved
-                          ? 'up to ${formatPaise(creditLimit)}'
-                          : m.code == 'CREDIT'
-                              ? 'Not approved'
-                              : null,
-                      onTap: () => ref
-                          .read(selectedPaymentProvider.notifier)
-                          .state = m.code,
-                    ),
-                  if (method == 'BANK_TRANSFER') ...[
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _bankRef,
-                      onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
-                        labelText: 'Transfer reference (UTR / txn id)',
-                        helperText:
-                            'Enter the reference after you transfer; we verify and confirm.',
-                        prefixIcon: Icon(Icons.tag),
-                      ),
-                    ),
-                  ],
-                  if (creditBlocked)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text('Credit isn\'t approved for your shop yet.',
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: theme.colorScheme.error)),
-                    ),
-                  const SizedBox(height: 12),
-                  _CouponField(
-                    applied: coupon,
-                    controller: _coupon,
-                    applying: _applyingCoupon,
-                    onApply: _applyCoupon,
-                    onRemove: () =>
-                        ref.read(appliedCouponProvider.notifier).state = null,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Subtotal (excl. GST)',
-                          style: theme.textTheme.titleMedium),
-                      Text(formatPaise(widget.subtotalPaise),
-                          style: theme.textTheme.titleLarge),
-                    ],
-                  ),
-                  if (coupon != null && coupon.discountPaise > 0) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Coupon (${coupon.code})',
-                            style: theme.textTheme.bodyMedium
-                                ?.copyWith(color: Colors.green.shade700)),
-                        Text('- ${formatPaise(coupon.discountPaise)}',
-                            style: theme.textTheme.titleMedium
-                                ?.copyWith(color: Colors.green.shade700)),
-                      ],
-                    ),
-                  ],
-                  Text('GST is added at checkout based on your delivery state.',
-                      style: theme.textTheme.bodySmall),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: canPlace
-                        ? () => ref
-                            .read(checkoutControllerProvider.notifier)
-                            .placeOrder(
-                              addressId: address.id,
-                              paymentMethod: method,
-                              bankReference: method == 'BANK_TRANSFER'
-                                  ? _bankRef.text.trim()
-                                  : null,
-                              couponCode: coupon?.code,
-                            )
-                        : null,
-                    child: checkout.isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Text('Place order'),
-                  ),
+                  Text('Subtotal (excl. GST)',
+                      style: theme.textTheme.titleMedium),
+                  Text(formatPaise(cart.subtotalPaise),
+                      style: theme.textTheme.titleLarge),
                 ],
               ),
-            ))),
+              if (coupon != null && coupon.discountPaise > 0) ...[
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Coupon (${coupon.code})',
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: Colors.green.shade700)),
+                    Text('- ${formatPaise(coupon.discountPaise)}',
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(color: Colors.green.shade700)),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: canPlace
+                      ? () => ref
+                          .read(checkoutControllerProvider.notifier)
+                          .placeOrder(
+                            addressId: address.id,
+                            paymentMethod: method,
+                            bankReference: method == 'BANK_TRANSFER'
+                                ? _bankRef.text.trim()
+                                : null,
+                            couponCode: coupon?.code,
+                          )
+                      : null,
+                  child: checkout.isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : Text(address == null
+                          ? 'Add an address to continue'
+                          : 'Place order'),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
