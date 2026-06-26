@@ -123,25 +123,30 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         loading: () => const ListCardSkeleton(itemCount: 4, height: 64),
         data: (cart) {
           if (cart.isEmpty) return const _EmptyCart();
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+          // Items + checkout form scroll in the Expanded list; the compact
+          // summary bar is pinned as a normal, intrinsically-sized Column child.
+          // We deliberately avoid an inner Scaffold.bottomNavigationBar — nesting
+          // a second bottom bar inside the home shell's IndexedStack left the
+          // body slivers unlaid (geometry: null) and crashed during paint.
+          return Column(
             children: [
-              for (final item in cart.items) ...[
-                _cartLine(item),
-                const Divider(height: 1),
-              ],
-              const SizedBox(height: 12),
-              ..._checkoutForm(cart),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+                  children: [
+                    for (final item in cart.items) ...[
+                      _cartLine(item),
+                      const Divider(height: 1),
+                    ],
+                    const SizedBox(height: 12),
+                    ..._checkoutForm(cart),
+                  ],
+                ),
+              ),
+              _placeOrderBar(cart),
             ],
           );
         },
-      ),
-      // Compact, fixed-content bar — intrinsically sized, so it lays out cleanly
-      // in the bottom slot even inside the shell's IndexedStack.
-      bottomNavigationBar: cartAsync.maybeWhen(
-        data: (cart) =>
-            cart.isEmpty ? null : _placeOrderBar(cart),
-        orElse: () => null,
       ),
     );
   }
