@@ -91,6 +91,29 @@ class CartController extends AutoDisposeAsyncNotifier<Cart> {
     }
   }
 
+  /// Adds a specific variant to the cart. Variant lines can't use the optimistic
+  /// product-keyed path (several variants share a productId), so this is
+  /// server-authoritative: it calls the API and adopts the returned cart.
+  Future<void> addVariant(String productId, String variantId, int quantity) async {
+    state = AsyncData(await _repo.addItem(productId, quantity, variantId: variantId));
+  }
+
+  /// Sets the quantity of a specific (product, variant) line; 0 removes it.
+  /// Server-authoritative, so it targets exactly one variant line.
+  Future<void> setLineQuantity(String productId, int quantity, {String? variantId}) async {
+    final current = state.valueOrNull;
+    try {
+      state = AsyncData(
+        quantity <= 0
+            ? await _repo.removeItem(productId, variantId: variantId)
+            : await _repo.setQuantity(productId, quantity, variantId: variantId),
+      );
+    } catch (e) {
+      if (current != null) state = AsyncData(current);
+      rethrow;
+    }
+  }
+
   Future<void> clear() async {
     state = AsyncData(await _repo.clear());
   }

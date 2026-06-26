@@ -6,6 +6,7 @@ import '../../../shared/formatters.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../categories/presentation/category_controller.dart';
+import '../../categories/presentation/category_products_screen.dart';
 import '../../cart/presentation/cart_controller.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
@@ -494,7 +495,11 @@ class _CategoryRail extends ConsumerWidget {
                   icon: Icons.category_outlined,
                   imageUrl: c.imageUrl,
                   selected: selected?.id == c.id,
-                  onTap: () => ref.read(selectedCategoryProvider.notifier).state = c,
+                  // Open a dedicated page for the category instead of filtering
+                  // the home feed in place.
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => CategoryProductsScreen(category: c)),
+                  ),
                 ),
             ],
           ),

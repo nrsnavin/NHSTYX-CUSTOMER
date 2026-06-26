@@ -97,7 +97,12 @@ class ProductCard extends StatelessWidget {
                         child: Text('MOQ ${product.moqQty}',
                             style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
                       ),
-                      _QtyControl(product: product, enabled: !outOfStock),
+                      // Variant products are added from the detail page (pick an
+                      // option first); others use the inline quick-add stepper.
+                      if (product.hasVariants)
+                        _SelectButton(onTap: onTap)
+                      else
+                        _QtyControl(product: product, enabled: !outOfStock),
                     ],
                   ),
                 ],
@@ -173,6 +178,42 @@ class _WishlistHeart extends ConsumerWidget {
             saved ? Icons.favorite : Icons.favorite_border,
             size: 18,
             color: saved ? Colors.red : scheme.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// "Select" affordance for variant products — opens the detail page where the
+/// shopper picks an option (size/colour) before adding.
+class _SelectButton extends StatelessWidget {
+  const _SelectButton({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surface,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: scheme.primary),
+          ),
+          child: Text(
+            'SELECT',
+            style: TextStyle(
+              color: scheme.primary,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              letterSpacing: 0.5,
+            ),
           ),
         ),
       ),

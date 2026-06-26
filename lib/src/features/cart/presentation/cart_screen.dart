@@ -7,6 +7,7 @@ import '../../../shared/widgets/skeleton.dart';
 import '../../addresses/presentation/address_controller.dart';
 import '../../addresses/presentation/add_address_screen.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../coupons/data/coupon_repository.dart';
 import '../../orders/presentation/orders_controller.dart';
 import '../domain/cart.dart';
 import 'cart_controller.dart';
@@ -31,10 +32,16 @@ const _methods = [
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
 
-  Future<void> _changeQty(BuildContext context, WidgetRef ref, String productId, int qty) async {
+  Future<void> _changeQty(BuildContext context, WidgetRef ref, CartLine line, int qty) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await ref.read(cartControllerProvider.notifier).setQuantity(productId, qty);
+      // Variant-aware: targets the exact (product, variant) line.
+      await ref
+          .read(cartControllerProvider.notifier)
+          .setLineQuantity(line.productId, qty, variantId: line.variantId);
+      // The cart total changed, so any applied coupon's discount is now stale —
+      // drop it and let the customer re-apply against the new total.
+      ref.read(appliedCouponProvider.notifier).state = null;
     } catch (e) {
       messenger
         ..hideCurrentSnackBar()
@@ -79,7 +86,9 @@ class CartScreen extends ConsumerWidget {
                     final item = cart.items[index];
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(item.name),
+                      title: Text(item.variantName != null
+                          ? '${item.name} · ${item.variantName}'
+                          : item.name),
                       subtitle: Text(
                         '${formatPaise(item.unitPricePaise)} / ${item.unit.toLowerCase()} · '
                         '${formatPaise(item.lineSubtotalPaise)}',
@@ -89,14 +98,12 @@ class CartScreen extends ConsumerWidget {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.remove_circle_outline),
-                            onPressed: () =>
-                                _changeQty(context, ref, item.productId, item.quantity - 1),
+                            onPressed: () => _changeQty(context, ref, item, item.quantity - 1),
                           ),
                           Text('${item.quantity}'),
                           IconButton(
                             icon: const Icon(Icons.add_circle_outline),
-                            onPressed: () =>
-                                _changeQty(context, ref, item.productId, item.quantity + 1),
+                            onPressed: () => _changeQty(context, ref, item, item.quantity + 1),
                           ),
                         ],
                       ),
@@ -123,11 +130,36 @@ class _CheckoutPanel extends ConsumerStatefulWidget {
 
 class _CheckoutPanelState extends ConsumerState<_CheckoutPanel> {
   final _bankRef = TextEditingController();
+  final _coupon = TextEditingController();
+  bool _applyingCoupon = false;
 
   @override
   void dispose() {
     _bankRef.dispose();
+    _coupon.dispose();
     super.dispose();
+  }
+
+  Future<void> _applyCoupon() async {
+    final code = _coupon.text.trim();
+    if (code.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _applyingCoupon = true);
+    try {
+      final applied = await ref.read(couponRepositoryProvider).validate(code);
+      ref.read(appliedCouponProvider.notifier).state = applied;
+      _coupon.clear();
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Coupon ${applied.code} applied')));
+    } catch (e) {
+      ref.read(appliedCouponProvider.notifier).state = null;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _applyingCoupon = false);
+    }
   }
 
   @override
@@ -137,6 +169,7 @@ class _CheckoutPanelState extends ConsumerState<_CheckoutPanel> {
     final method = ref.watch(selectedPaymentProvider);
     final checkout = ref.watch(checkoutControllerProvider);
     final customer = ref.watch(authControllerProvider).valueOrNull;
+    final coupon = ref.watch(appliedCouponProvider);
 
     final creditApproved = customer?.creditApproved ?? false;
     final creditLimit = customer?.creditLimitPaise ?? 0;
@@ -203,6 +236,14 @@ class _CheckoutPanelState extends ConsumerState<_CheckoutPanel> {
                       style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error)),
                 ),
               const SizedBox(height: 12),
+              _CouponField(
+                applied: coupon,
+                controller: _coupon,
+                applying: _applyingCoupon,
+                onApply: _applyCoupon,
+                onRemove: () => ref.read(appliedCouponProvider.notifier).state = null,
+              ),
+              const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -210,6 +251,18 @@ class _CheckoutPanelState extends ConsumerState<_CheckoutPanel> {
                   Text(formatPaise(widget.subtotalPaise), style: theme.textTheme.titleLarge),
                 ],
               ),
+              if (coupon != null && coupon.discountPaise > 0) ...[
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Coupon (${coupon.code})',
+                        style: theme.textTheme.bodyMedium?.copyWith(color: Colors.green.shade700)),
+                    Text('- ${formatPaise(coupon.discountPaise)}',
+                        style: theme.textTheme.titleMedium?.copyWith(color: Colors.green.shade700)),
+                  ],
+                ),
+              ],
               Text('GST is added at checkout based on your delivery state.',
                   style: theme.textTheme.bodySmall),
               const SizedBox(height: 12),
@@ -219,6 +272,7 @@ class _CheckoutPanelState extends ConsumerState<_CheckoutPanel> {
                           addressId: address.id,
                           paymentMethod: method,
                           bankReference: method == 'BANK_TRANSFER' ? _bankRef.text.trim() : null,
+                          couponCode: coupon?.code,
                         )
                     : null,
                 child: checkout.isLoading
@@ -292,6 +346,93 @@ class _PaymentTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Coupon entry: a code field + Apply, or a green "applied" banner with the
+/// saving and a remove button.
+class _CouponField extends StatelessWidget {
+  const _CouponField({
+    required this.applied,
+    required this.controller,
+    required this.applying,
+    required this.onApply,
+    required this.onRemove,
+  });
+
+  final AppliedCoupon? applied;
+  final TextEditingController controller;
+  final bool applying;
+  final VoidCallback onApply;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (applied != null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.green.shade200),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.local_offer, color: Colors.green.shade700, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${applied!.code} applied',
+                      style: theme.textTheme.titleSmall?.copyWith(color: Colors.green.shade800)),
+                  Text(
+                    applied!.description?.isNotEmpty == true
+                        ? applied!.description!
+                        : 'You save ${formatPaise(applied!.discountPaise)}',
+                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.green.shade700),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              color: Colors.green.shade700,
+              onPressed: onRemove,
+              tooltip: 'Remove coupon',
+            ),
+          ],
+        ),
+      );
+    }
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(
+              labelText: 'Have a coupon?',
+              hintText: 'Enter code',
+              prefixIcon: Icon(Icons.local_offer_outlined),
+              isDense: true,
+            ),
+            onSubmitted: (_) => onApply(),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          height: 48,
+          child: FilledButton.tonal(
+            onPressed: applying ? null : onApply,
+            child: applying
+                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Apply'),
+          ),
+        ),
+      ],
     );
   }
 }

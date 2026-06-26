@@ -5,6 +5,7 @@ import '../../../shared/formatters.dart';
 import '../../../shared/widgets/product_thumb.dart';
 import '../../cart/presentation/cart_controller.dart';
 import '../domain/product.dart';
+import 'products_controller.dart';
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
   const ProductDetailScreen({super.key, required this.product});
@@ -18,22 +19,37 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   late int _qty = widget.product.moqQty;
   bool _adding = false;
+  String? _selectedVariantId;
 
-  Product get _p => widget.product;
+  /// The chosen variant for a variant product (defaults to the first in-stock).
+  ProductVariant? _variant(Product p) {
+    if (!p.hasVariants || p.variants.isEmpty) return null;
+    final byId = _selectedVariantId == null
+        ? null
+        : p.variants.where((v) => v.id == _selectedVariantId).firstOrNull;
+    return byId ??
+        p.variants.where((v) => v.inStock).firstOrNull ??
+        p.variants.first;
+  }
 
-  void _setQty(int next) {
-    final clamped = next.clamp(_p.moqQty, _p.stockQty == 0 ? _p.moqQty : _p.stockQty);
+  void _setQty(int next, int stock) {
+    final clamped = next.clamp(widget.product.moqQty, stock == 0 ? widget.product.moqQty : stock);
     setState(() => _qty = clamped);
   }
 
-  Future<void> _add() async {
+  Future<void> _add(Product p, ProductVariant? variant) async {
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _adding = true);
     try {
-      await ref.read(cartControllerProvider.notifier).add(_p, _qty);
+      if (variant != null) {
+        await ref.read(cartControllerProvider.notifier).addVariant(p.id, variant.id, _qty);
+      } else {
+        await ref.read(cartControllerProvider.notifier).add(p, _qty);
+      }
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text('Added ${_p.name} to cart')));
+        ..showSnackBar(SnackBar(
+            content: Text('Added ${p.name}${variant != null ? ' (${variant.name})' : ''} to cart')));
     } catch (e) {
       messenger
         ..hideCurrentSnackBar()
@@ -46,26 +62,38 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final unitPrice = _p.unitPricePaiseFor(_qty);
+    // Full detail (incl. variants) — fall back to the list product while loading.
+    final p = ref.watch(productDetailProvider(widget.product.id)).valueOrNull ?? widget.product;
+    final variant = _variant(p);
+
+    // Effective price / stock come from the chosen variant when there is one.
+    final unitPrice = variant?.pricePaise ?? p.unitPricePaiseFor(_qty);
+    final stock = variant?.stockQty ?? p.stockQty;
+    final mrp = variant?.mrpPaise ?? p.mrpPaise;
+    final inStock = variant != null ? variant.inStock : p.inStock;
+    final canAdd = inStock && !_adding && !(p.hasVariants && p.variants.isEmpty);
     final lineTotal = unitPrice * _qty;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Product')),
       body: ListView(
         children: [
-          AspectRatio(aspectRatio: 1, child: ProductThumb(imageUrl: _p.imageUrl)),
+          AspectRatio(
+            aspectRatio: 1,
+            child: ProductThumb(imageUrl: variant?.imageUrl ?? p.imageUrl),
+          ),
           Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_p.categoryName != null || _p.brand != null)
+                if (p.categoryName != null || p.brand != null)
                   Text(
-                    [_p.brand, _p.categoryName].where((e) => e != null).join(' · '),
+                    [p.brand, p.categoryName].where((e) => e != null).join(' · '),
                     style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
                   ),
                 const SizedBox(height: 4),
-                Text(_p.name, style: theme.textTheme.headlineMedium?.copyWith(fontSize: 24)),
+                Text(p.name, style: theme.textTheme.headlineMedium?.copyWith(fontSize: 24)),
                 const SizedBox(height: 12),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -73,11 +101,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   children: [
                     Text(formatPaise(unitPrice), style: theme.textTheme.headlineMedium?.copyWith(fontSize: 26)),
                     const SizedBox(width: 6),
-                    Text('/ ${_p.unit.toLowerCase()}', style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor)),
+                    Text('/ ${p.unit.toLowerCase()}', style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor)),
                     const SizedBox(width: 10),
-                    if (_p.mrpPaise != null && _p.mrpPaise! > unitPrice)
+                    if (mrp != null && mrp > unitPrice)
                       Text(
-                        formatPaise(_p.mrpPaise!),
+                        formatPaise(mrp),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.hintColor,
                           decoration: TextDecoration.lineThrough,
@@ -86,25 +114,39 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text('Excl. ${_p.gstRatePercent}% GST', style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
+                Text('Excl. ${p.gstRatePercent}% GST', style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
+                if (p.hasVariants) ...[
+                  const SizedBox(height: 18),
+                  Text('Options', style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 8),
+                  if (p.variants.isEmpty)
+                    Text('No options available in your store yet',
+                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor))
+                  else
+                    _VariantSelector(
+                      variants: p.variants,
+                      selectedId: variant?.id,
+                      onSelect: (v) => setState(() {
+                        _selectedVariantId = v.id;
+                        _qty = p.moqQty;
+                      }),
+                    ),
+                ],
                 const SizedBox(height: 16),
-                _InfoRow(label: 'Minimum order', value: '${_p.moqQty} ${_p.unit.toLowerCase()}'),
-                _InfoRow(
-                  label: 'Availability',
-                  value: _p.inStock ? '${_p.stockQty} in stock' : 'Out of stock',
-                ),
-                if (_p.hsnCode != null) _InfoRow(label: 'HSN', value: _p.hsnCode!),
-                if (_p.priceTiers.isNotEmpty) ...[
+                _InfoRow(label: 'Minimum order', value: '${p.moqQty} ${p.unit.toLowerCase()}'),
+                _InfoRow(label: 'Availability', value: inStock ? '$stock in stock' : 'Out of stock'),
+                if (p.hsnCode != null) _InfoRow(label: 'HSN', value: p.hsnCode!),
+                if (!p.hasVariants && p.priceTiers.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   Text('Bulk pricing', style: theme.textTheme.titleSmall),
                   const SizedBox(height: 8),
-                  _TierTable(product: _p, currentQty: _qty),
+                  _TierTable(product: p, currentQty: _qty),
                 ],
-                if ((_p.description ?? '').isNotEmpty) ...[
+                if ((p.description ?? '').isNotEmpty) ...[
                   const SizedBox(height: 20),
                   Text('Description', style: theme.textTheme.titleSmall),
                   const SizedBox(height: 6),
-                  Text(_p.description!, style: theme.textTheme.bodyMedium),
+                  Text(p.description!, style: theme.textTheme.bodyMedium),
                 ],
                 const SizedBox(height: 90),
               ],
@@ -113,14 +155,48 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         ],
       ),
       bottomNavigationBar: _BottomBar(
-        product: _p,
+        priceLabel: formatPaise(lineTotal),
         qty: _qty,
-        lineTotalPaise: lineTotal,
         adding: _adding,
-        onDec: () => _setQty(_qty - 1),
-        onInc: () => _setQty(_qty + 1),
-        onAdd: _p.inStock && !_adding ? _add : null,
+        onDec: () => _setQty(_qty - 1, stock),
+        onInc: () => _setQty(_qty + 1, stock),
+        onAdd: canAdd ? () => _add(p, variant) : null,
       ),
+    );
+  }
+}
+
+/// Choice chips for a product's variants, disabling out-of-stock options.
+class _VariantSelector extends StatelessWidget {
+  const _VariantSelector({required this.variants, required this.selectedId, required this.onSelect});
+
+  final List<ProductVariant> variants;
+  final String? selectedId;
+  final void Function(ProductVariant) onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final v in variants)
+          ChoiceChip(
+            label: Text(v.inStock ? v.name : '${v.name} · out'),
+            selected: v.id == selectedId,
+            onSelected: v.inStock ? (_) => onSelect(v) : null,
+            labelStyle: TextStyle(
+              color: !v.inStock
+                  ? theme.disabledColor
+                  : v.id == selectedId
+                      ? theme.colorScheme.onPrimary
+                      : theme.colorScheme.onSurface,
+              fontWeight: v.id == selectedId ? FontWeight.w700 : FontWeight.w500,
+            ),
+            selectedColor: theme.colorScheme.primary,
+          ),
+      ],
     );
   }
 }
@@ -194,18 +270,16 @@ class _TierTable extends StatelessWidget {
 
 class _BottomBar extends StatelessWidget {
   const _BottomBar({
-    required this.product,
+    required this.priceLabel,
     required this.qty,
-    required this.lineTotalPaise,
     required this.adding,
     required this.onDec,
     required this.onInc,
     required this.onAdd,
   });
 
-  final Product product;
+  final String priceLabel;
   final int qty;
-  final int lineTotalPaise;
   final bool adding;
   final VoidCallback onDec;
   final VoidCallback onInc;
@@ -232,7 +306,7 @@ class _BottomBar extends StatelessWidget {
                   child: adding
                       ? const SizedBox(
                           height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                      : Text('Add • ${formatPaise(lineTotalPaise)}'),
+                      : Text('Add • $priceLabel'),
                 ),
               ),
             ],

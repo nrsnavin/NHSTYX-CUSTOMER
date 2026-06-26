@@ -34,6 +34,17 @@ class _FakeProductRepo implements ProductRepository {
 
   @override
   Future<List<Product>> fetchRecentlyOrdered() async => const [];
+
+  @override
+  Future<Product> fetchProduct(String id) async => const Product(
+        id: 'p1',
+        name: 'Test Cotton Kurti',
+        unit: 'PIECE',
+        pricePaise: 32000,
+        gstRatePercent: 5,
+        moqQty: 6,
+        stockQty: 100,
+      );
 }
 
 class _FakeCategoryRepo implements CategoryRepository {

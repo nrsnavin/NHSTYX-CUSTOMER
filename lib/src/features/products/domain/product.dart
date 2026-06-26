@@ -15,6 +15,48 @@ class PriceTier {
       PriceTier(minQty: _toInt(json['minQty']), pricePaise: _toInt(json['pricePaise']));
 }
 
+/// An orderable variation of a product (e.g. "Red / M") with its own per-store
+/// price & stock.
+class ProductVariant {
+  const ProductVariant({
+    required this.id,
+    required this.name,
+    required this.pricePaise,
+    required this.stockQty,
+    this.sku,
+    this.mrpPaise,
+    this.imageUrl,
+  });
+
+  final String id;
+  final String name;
+  final int pricePaise;
+  final int stockQty;
+  final String? sku;
+  final int? mrpPaise;
+  final String? imageUrl;
+
+  bool get inStock => stockQty > 0;
+
+  int? get discountPercent {
+    final mrp = mrpPaise;
+    if (mrp == null || mrp <= pricePaise) return null;
+    return ((mrp - pricePaise) / mrp * 100).round();
+  }
+
+  factory ProductVariant.fromJson(Map<String, dynamic> json) {
+    return ProductVariant(
+      id: json['id'] as String,
+      name: (json['name'] ?? '') as String,
+      pricePaise: _toInt(json['pricePaise']),
+      stockQty: _toInt(json['stockQty']),
+      sku: json['sku'] as String?,
+      mrpPaise: json['mrpPaise'] == null ? null : _toInt(json['mrpPaise']),
+      imageUrl: json['imageUrl'] as String?,
+    );
+  }
+}
+
 /// A flat catalog product priced in integer paise, GST-exclusive.
 class Product {
   const Product({
@@ -33,6 +75,8 @@ class Product {
     this.categoryName,
     this.tags = const [],
     this.priceTiers = const [],
+    this.hasVariants = false,
+    this.variants = const [],
   });
 
   final String id;
@@ -50,6 +94,12 @@ class Product {
   final String? categoryName;
   final List<String> tags;
   final List<PriceTier> priceTiers;
+
+  /// True when the product is sold via variants (size/colour). The card then
+  /// prompts "Select" instead of a one-tap add; [variants] is populated on the
+  /// product-detail fetch.
+  final bool hasVariants;
+  final List<ProductVariant> variants;
 
   bool get inStock => stockQty > 0;
 
@@ -104,6 +154,10 @@ class Product {
           .toList(),
       priceTiers: (json['priceTiers'] as List<dynamic>? ?? [])
           .map((e) => PriceTier.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      hasVariants: json['hasVariants'] == true,
+      variants: (json['variants'] as List<dynamic>? ?? const [])
+          .map((e) => ProductVariant.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }

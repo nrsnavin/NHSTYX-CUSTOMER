@@ -3,22 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/product_thumb.dart';
-import '../../home/presentation/home_screen.dart';
-import '../../products/presentation/products_controller.dart';
 import '../../search/presentation/ai_search_screen.dart';
 import '../domain/category.dart';
 import 'category_controller.dart';
+import 'category_products_screen.dart';
 
 /// Browse all categories, grouped by parent with their sub-categories as cards
-/// (Instamart-style). Picking a (sub-)category filters the Home tab by it —
-/// tree-aware on the backend, so a parent includes its children.
+/// (Instamart-style). Picking a (sub-)category opens a dedicated page listing
+/// its products — tree-aware on the backend, so a parent includes its children.
 class CategoriesScreen extends ConsumerWidget {
   const CategoriesScreen({super.key});
 
-  void _select(WidgetRef ref, Category c) {
-    ref.read(productSearchProvider.notifier).state = '';
-    ref.read(selectedCategoryProvider.notifier).state = c;
-    ref.read(homeTabProvider.notifier).state = 0; // back to Home, now filtered
+  void _open(BuildContext context, Category c) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => CategoryProductsScreen(category: c)),
+    );
   }
 
   @override
@@ -53,7 +52,7 @@ class CategoriesScreen extends ConsumerWidget {
               Text('Shop by category',
                   style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
-              _CategoryGrid(items: categories, onTap: (c) => _select(ref, c)),
+              _CategoryGrid(items: categories, onTap: (c) => _open(context, c)),
               for (final parent in withChildren) ...[
                 const SizedBox(height: 22),
                 Row(
@@ -64,13 +63,13 @@ class CategoriesScreen extends ConsumerWidget {
                               theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
                     ),
                     TextButton(
-                      onPressed: () => _select(ref, parent),
+                      onPressed: () => _open(context, parent),
                       child: const Text('See all'),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                _CategoryGrid(items: parent.children, onTap: (c) => _select(ref, c)),
+                _CategoryGrid(items: parent.children, onTap: (c) => _open(context, c)),
               ],
             ],
           );
