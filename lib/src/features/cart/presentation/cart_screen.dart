@@ -81,48 +81,50 @@ class CartScreen extends ConsumerWidget {
         loading: () => const ListCardSkeleton(itemCount: 4, height: 64),
         data: (cart) {
           if (cart.isEmpty) return const _EmptyCart();
-          return Column(
-            children: [
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: cart.items.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final item = cart.items[index];
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(item.variantName != null
-                          ? '${item.name} · ${item.variantName}'
-                          : item.name),
-                      subtitle: Text(
-                        '${formatPaise(item.unitPricePaise)} / ${item.unit.toLowerCase()} · '
-                        '${formatPaise(item.lineSubtotalPaise)}',
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.remove_circle_outline),
-                            onPressed: () => _changeQty(
-                                context, ref, item, item.quantity - 1),
-                          ),
-                          Text('${item.quantity}'),
-                          IconButton(
-                            icon: const Icon(Icons.add_circle_outline),
-                            onPressed: () => _changeQty(
-                                context, ref, item, item.quantity + 1),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+          return ListView.separated(
+            padding: const EdgeInsets.all(12),
+            itemCount: cart.items.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final item = cart.items[index];
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(item.variantName != null
+                    ? '${item.name} · ${item.variantName}'
+                    : item.name),
+                subtitle: Text(
+                  '${formatPaise(item.unitPricePaise)} / ${item.unit.toLowerCase()} · '
+                  '${formatPaise(item.lineSubtotalPaise)}',
                 ),
-              ),
-              _CheckoutPanel(subtotalPaise: cart.subtotalPaise),
-            ],
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      onPressed: () =>
+                          _changeQty(context, ref, item, item.quantity - 1),
+                    ),
+                    Text('${item.quantity}'),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      onPressed: () =>
+                          _changeQty(context, ref, item, item.quantity + 1),
+                    ),
+                  ],
+                ),
+              );
+            },
           );
         },
+      ),
+      // The checkout panel lives in the bottomNavigationBar slot (not the body)
+      // so it's given a bounded height — which also shrinks when the keyboard is
+      // up — letting its internal scroll fit the space instead of overflowing an
+      // unbounded Column and leaving an unsized box (the hit-test crash).
+      bottomNavigationBar: cartAsync.maybeWhen(
+        data: (cart) =>
+            cart.isEmpty ? null : _CheckoutPanel(subtotalPaise: cart.subtotalPaise),
+        orElse: () => null,
       ),
     );
   }
