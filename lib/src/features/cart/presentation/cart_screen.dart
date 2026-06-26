@@ -115,6 +115,12 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       }
     });
 
+    // Structurally identical to the app's other tabs (Scaffold → AsyncValueView
+    // → single ListView). Everything — cart lines, the checkout form and the
+    // place-order summary — is one scroll view. We deliberately avoid Column/
+    // Expanded or an inner bottomNavigationBar: nesting those inside the home
+    // shell's IndexedStack left this viewport's slivers unlaid (geometry: null)
+    // and crashed during paint/hit-test.
     return Scaffold(
       appBar: AppBar(title: const Text('Cart')),
       body: AsyncValueView<Cart>(
@@ -123,27 +129,17 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         loading: () => const ListCardSkeleton(itemCount: 4, height: 64),
         data: (cart) {
           if (cart.isEmpty) return const _EmptyCart();
-          // Items + checkout form scroll in the Expanded list; the compact
-          // summary bar is pinned as a normal, intrinsically-sized Column child.
-          // We deliberately avoid an inner Scaffold.bottomNavigationBar — nesting
-          // a second bottom bar inside the home shell's IndexedStack left the
-          // body slivers unlaid (geometry: null) and crashed during paint.
-          return Column(
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
             children: [
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-                  children: [
-                    for (final item in cart.items) ...[
-                      _cartLine(item),
-                      const Divider(height: 1),
-                    ],
-                    const SizedBox(height: 12),
-                    ..._checkoutForm(cart),
-                  ],
-                ),
-              ),
-              _placeOrderBar(cart),
+              for (final item in cart.items) ...[
+                _cartLine(item),
+                const Divider(height: 1),
+              ],
+              const SizedBox(height: 12),
+              ..._checkoutForm(cart),
+              const SizedBox(height: 16),
+              _orderSummary(cart),
             ],
           );
         },
@@ -258,8 +254,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     ];
   }
 
-  /// Pinned summary + CTA. Reads the same providers so it enables/disables live.
-  Widget _placeOrderBar(Cart cart) {
+  /// Totals + place-order CTA — the last block in the scroll. Reads the same
+  /// providers so it enables/disables live.
+  Widget _orderSummary(Cart cart) {
     final theme = Theme.of(context);
     final address = ref.watch(defaultAddressProvider);
     final method = ref.watch(selectedPaymentProvider);
@@ -276,68 +273,59 @@ class _CartScreenState extends ConsumerState<CartScreen> {
         !bankRefMissing &&
         !creditBlocked;
 
-    return Material(
-      elevation: 8,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Divider(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Subtotal (excl. GST)', style: theme.textTheme.titleMedium),
+            Text(formatPaise(cart.subtotalPaise),
+                style: theme.textTheme.titleLarge),
+          ],
+        ),
+        if (coupon != null && coupon.discountPaise > 0) ...[
+          const SizedBox(height: 2),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Subtotal (excl. GST)',
-                      style: theme.textTheme.titleMedium),
-                  Text(formatPaise(cart.subtotalPaise),
-                      style: theme.textTheme.titleLarge),
-                ],
-              ),
-              if (coupon != null && coupon.discountPaise > 0) ...[
-                const SizedBox(height: 2),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Coupon (${coupon.code})',
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: Colors.green.shade700)),
-                    Text('- ${formatPaise(coupon.discountPaise)}',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(color: Colors.green.shade700)),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: canPlace
-                      ? () => ref
-                          .read(checkoutControllerProvider.notifier)
-                          .placeOrder(
-                            addressId: address.id,
-                            paymentMethod: method,
-                            bankReference: method == 'BANK_TRANSFER'
-                                ? _bankRef.text.trim()
-                                : null,
-                            couponCode: coupon?.code,
-                          )
-                      : null,
-                  child: checkout.isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : Text(address == null
-                          ? 'Add an address to continue'
-                          : 'Place order'),
-                ),
-              ),
+              Text('Coupon (${coupon.code})',
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: Colors.green.shade700)),
+              Text('- ${formatPaise(coupon.discountPaise)}',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(color: Colors.green.shade700)),
             ],
           ),
+        ],
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: canPlace
+                ? () => ref
+                    .read(checkoutControllerProvider.notifier)
+                    .placeOrder(
+                      addressId: address.id,
+                      paymentMethod: method,
+                      bankReference: method == 'BANK_TRANSFER'
+                          ? _bankRef.text.trim()
+                          : null,
+                      couponCode: coupon?.code,
+                    )
+                : null,
+            child: checkout.isLoading
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : Text(address == null
+                    ? 'Add an address to continue'
+                    : 'Place order'),
+          ),
         ),
-      ),
+      ],
     );
   }
 }
