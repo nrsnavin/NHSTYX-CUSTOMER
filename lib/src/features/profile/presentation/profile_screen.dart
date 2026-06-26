@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/presentation/auth_controller.dart';
 import '../../home/presentation/home_screen.dart';
+import '../../quotations/presentation/quotations_screen.dart';
 import '../../wishlist/presentation/wishlist_screen.dart';
 import 'address_book_screen.dart';
 import 'gst_details_screen.dart';
@@ -42,6 +43,14 @@ class ProfileScreen extends ConsumerWidget {
                       ref.read(homeTabProvider.notifier).state = 2;
                       Navigator.of(context).pop();
                     },
+                  ),
+                  _MenuRow(
+                    icon: Icons.request_quote_outlined,
+                    label: 'Quotations',
+                    subtitle: 'Price quotes we sent you',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const QuotationsScreen()),
+                    ),
                   ),
                   _MenuRow(
                     icon: Icons.favorite_border,
