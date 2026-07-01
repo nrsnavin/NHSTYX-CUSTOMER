@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/dio_client.dart';
 import '../domain/order.dart';
+import '../domain/order_tracking.dart';
 
 class RazorpayCheckout {
   const RazorpayCheckout({
@@ -147,6 +148,17 @@ class OrderRepository {
       );
       final items = response.data!['items'] as List<dynamic>;
       return items.map((e) => Order.fromJson(e as Map<String, dynamic>)).toList();
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    }
+  }
+
+  /// Shipment tracking for an order (courier + AWB + checkpoint timeline,
+  /// live from the courier when the backend has a shipping partner configured).
+  Future<OrderTracking> fetchTracking(String orderId) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('/orders/$orderId/tracking');
+      return OrderTracking.fromJson(response.data!['data'] as Map<String, dynamic>);
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }

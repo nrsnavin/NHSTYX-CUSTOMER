@@ -14,6 +14,7 @@ import '../data/order_repository.dart';
 import '../data/razorpay_service.dart';
 import '../domain/order.dart';
 import 'invoice_screen.dart';
+import 'order_detail_screen.dart';
 import 'orders_controller.dart';
 import 'request_return_sheet.dart';
 
@@ -183,7 +184,12 @@ class _OrderCard extends ConsumerWidget {
     final s = _statusStyle(order.status);
     final itemCount = order.items.fold<int>(0, (n, i) => n + i.quantity);
 
-    return Container(
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => OrderDetailScreen(order: order)),
+      ),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
@@ -319,6 +325,7 @@ class _OrderCard extends ConsumerWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

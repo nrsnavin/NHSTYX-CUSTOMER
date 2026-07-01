@@ -6,10 +6,17 @@ import '../../coupons/data/coupon_repository.dart';
 import '../data/order_repository.dart';
 import '../data/razorpay_service.dart';
 import '../domain/order.dart';
+import '../domain/order_tracking.dart';
 
 /// The signed-in customer's order history.
 final ordersProvider = FutureProvider.autoDispose<List<Order>>((ref) {
   return ref.watch(orderRepositoryProvider).fetchOrders();
+});
+
+/// Shipment tracking timeline for a single order (backs the detail screen).
+final orderTrackingProvider =
+    FutureProvider.autoDispose.family<OrderTracking, String>((ref, orderId) {
+  return ref.watch(orderRepositoryProvider).fetchTracking(orderId);
 });
 
 /// Handles checkout: posts the order, then refreshes cart + order history.
