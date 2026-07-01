@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../bundles/presentation/bundles_screen.dart';
 import '../../categories/presentation/category_controller.dart';
 import '../../categories/presentation/category_products_screen.dart';
 import '../../cart/presentation/cart_controller.dart';
@@ -32,6 +33,13 @@ class ProductsScreen extends ConsumerWidget {
           storeName: store?.name,
         ),
         actions: [
+          IconButton(
+            tooltip: 'Kits & bundles',
+            icon: const Icon(Icons.widgets_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const BundlesScreen()),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: InkWell(
