@@ -59,6 +59,21 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 
   Future<void> _changeQty(CartLine line, int qty) async {
     final messenger = ScaffoldMessenger.of(context);
+    // Below the minimum order quantity there is no valid line — the − button
+    // at the MOQ removes the item (otherwise a below-MOQ line lingers in the
+    // cart and only fails later, at checkout).
+    if (qty > 0 && qty < line.moqQty) qty = 0;
+    final removing = qty <= 0;
+    // The line vanishes optimistically, so confirm the removal right away —
+    // don't leave the shop guessing while the server round-trip completes.
+    if (removing) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text('Removed ${line.name}${line.variantName != null ? ' (${line.variantName})' : ''} from cart'),
+          duration: const Duration(seconds: 2),
+        ));
+    }
     try {
       // Variant-aware: targets the exact (product, variant) line.
       await ref
@@ -70,7 +85,11 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     } catch (e) {
       messenger
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(e.toString())));
+        ..showSnackBar(SnackBar(
+          content: Text(
+            removing ? 'Could not remove ${line.name} — restored. ${e.toString()}' : e.toString(),
+          ),
+        ));
     }
   }
 

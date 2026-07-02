@@ -99,9 +99,39 @@ class CartController extends AutoDisposeAsyncNotifier<Cart> {
   }
 
   /// Sets the quantity of a specific (product, variant) line; 0 removes it.
-  /// Server-authoritative, so it targets exactly one variant line.
+  /// Optimistic like the rest: the line updates (or disappears) instantly and
+  /// the server's authoritative cart reconciles behind it — on a slow network
+  /// the UI would otherwise sit stale for the whole round-trip.
   Future<void> setLineQuantity(String productId, int quantity, {String? variantId}) async {
     final current = state.valueOrNull;
+
+    if (current != null) {
+      if (quantity <= 0) {
+        state = AsyncData(current.withRemovedLine(productId, variantId));
+      } else {
+        final i = current.items
+            .indexWhere((l) => l.productId == productId && l.variantId == variantId);
+        if (i >= 0) {
+          final l = current.items[i];
+          state = AsyncData(current.withLineVariant(CartLine(
+            productId: l.productId,
+            variantId: l.variantId,
+            variantName: l.variantName,
+            name: l.name,
+            unit: l.unit,
+            quantity: quantity,
+            moqQty: l.moqQty,
+            stockQty: l.stockQty,
+            unitPricePaise: l.unitPricePaise,
+            lineSubtotalPaise: l.unitPricePaise * quantity,
+            brand: l.brand,
+            imageUrl: l.imageUrl,
+            gstRatePercent: l.gstRatePercent,
+          )));
+        }
+      }
+    }
+
     try {
       state = AsyncData(
         quantity <= 0

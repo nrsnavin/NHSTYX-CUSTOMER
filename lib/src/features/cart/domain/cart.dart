@@ -101,6 +101,31 @@ class Cart {
   Cart withRemoved(String productId) =>
       _recomputed(items.where((l) => l.productId != productId).toList());
 
+  /// Variant-aware update: replaces (or removes when quantity <= 0) exactly
+  /// the (product, variant) line — several variant lines can share a
+  /// productId, so the plain [withLine] would clobber siblings.
+  Cart withLineVariant(CartLine line) {
+    final next = <CartLine>[];
+    var replaced = false;
+    for (final l in items) {
+      if (l.productId == line.productId && l.variantId == line.variantId) {
+        if (line.quantity > 0) next.add(line);
+        replaced = true;
+      } else {
+        next.add(l);
+      }
+    }
+    if (!replaced && line.quantity > 0) next.add(line);
+    return _recomputed(next);
+  }
+
+  /// Removes exactly the (product, variant) line.
+  Cart withRemovedLine(String productId, String? variantId) => _recomputed(
+        items
+            .where((l) => !(l.productId == productId && l.variantId == variantId))
+            .toList(),
+      );
+
   static Cart _recomputed(List<CartLine> items) => Cart(
         items: items,
         itemCount: items.length,
