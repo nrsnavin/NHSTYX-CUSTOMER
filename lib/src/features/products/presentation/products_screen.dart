@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../shared/formatters.dart';
+import '../../../shared/widgets/product_grid.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../bundles/presentation/bundles_screen.dart';
@@ -160,12 +161,7 @@ class _ShopFeed extends ConsumerWidget {
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                     sliver: SliverGrid(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 14,
-                        crossAxisSpacing: 14,
-                        childAspectRatio: 0.62,
-                      ),
+                      gridDelegate: productGridDelegate,
                       delegate: SliverChildBuilderDelegate(
                         (context, i) {
                           final p = feed.products[i];

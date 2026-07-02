@@ -84,22 +84,22 @@ class ProductCard extends StatelessWidget {
                       Text(formatPaise(product.fromPricePaise), style: theme.textTheme.titleMedium),
                       const SizedBox(width: 4),
                       // Selling price + struck-through MRP when there's a saving,
-                      // otherwise the per-unit suffix.
-                      if (discount != null)
-                        Flexible(
-                          child: Text(
-                            formatPaise(product.mrpPaise!),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.hintColor,
-                              decoration: TextDecoration.lineThrough,
-                            ),
+                      // otherwise the per-unit suffix. Flexible + ellipsis so a
+                      // wide price never overflows a narrow card (small phones).
+                      Flexible(
+                        child: Text(
+                          discount != null
+                              ? formatPaise(product.mrpPaise!)
+                              : '/ ${product.unit.toLowerCase()}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.hintColor,
+                            decoration:
+                                discount != null ? TextDecoration.lineThrough : null,
                           ),
-                        )
-                      else
-                        Text('/ ${product.unit.toLowerCase()}',
-                            style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor)),
+                        ),
+                      ),
                     ],
                   ),
                   if (discount != null)

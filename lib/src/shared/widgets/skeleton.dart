@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'product_grid.dart';
+
 /// Wraps skeleton placeholders with a sweeping shimmer highlight.
 class Shimmer extends StatefulWidget {
   const Shimmer({super.key, required this.child});
@@ -89,12 +91,7 @@ class ProductGridSkeleton extends StatelessWidget {
       child: GridView.builder(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 14,
-          crossAxisSpacing: 14,
-          childAspectRatio: 0.62,
-        ),
+        gridDelegate: productGridDelegate,
         itemCount: itemCount,
         itemBuilder: (_, __) => const _CardSkeleton(),
       ),

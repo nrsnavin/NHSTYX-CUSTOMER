@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/product_grid.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../products/domain/product.dart';
 import '../../products/presentation/product_card.dart';
@@ -231,12 +232,7 @@ class _CategoryProductsScreenState extends ConsumerState<CategoryProductsScreen>
                   onRefresh: () async => ref.invalidate(filteredCategoryProductsProvider(query)),
                   child: GridView.builder(
                     padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 14,
-                      crossAxisSpacing: 14,
-                      childAspectRatio: 0.62,
-                    ),
+                    gridDelegate: productGridDelegate,
                     itemCount: products.length,
                     itemBuilder: (context, i) {
                       final p = products[i];

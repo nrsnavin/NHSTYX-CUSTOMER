@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
+import '../../../shared/widgets/product_grid.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../categories/domain/category.dart';
 import '../../categories/presentation/category_controller.dart';
@@ -201,12 +202,7 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
               SliverPadding(
                 padding: const EdgeInsets.all(16),
                 sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 14,
-                    crossAxisSpacing: 14,
-                    childAspectRatio: 0.62,
-                  ),
+                  gridDelegate: productGridDelegate,
                   delegate: SliverChildBuilderDelegate(
                     (context, i) {
                       final p = result.items[i];
