@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/formatters.dart';
+import '../../../shared/haptics.dart';
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/product_thumb.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../addresses/presentation/address_controller.dart';
 import '../../addresses/presentation/add_address_screen.dart';
@@ -170,26 +172,50 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 
   Widget _cartLine(CartLine item) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(item.variantName != null
-          ? '${item.name} · ${item.variantName}'
-          : item.name),
-      subtitle: Text(
-        '${formatPaise(item.unitPricePaise)} / ${item.unit.toLowerCase()} · '
-        '${formatPaise(item.lineSubtotalPaise)}',
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          IconButton(
-            icon: const Icon(Icons.remove_circle_outline),
-            onPressed: () => _changeQty(item, item.quantity - 1),
+          // Thumbnail — scannability in a long bulk cart.
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 52,
+              height: 52,
+              child: ProductThumb(imageUrl: item.imageUrl),
+            ),
           ),
-          Text('${item.quantity}'),
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            onPressed: () => _changeQty(item, item.quantity + 1),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.variantName != null ? '${item.name} · ${item.variantName}' : item.name,
+                  style: theme.textTheme.titleSmall,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${formatPaise(item.unitPricePaise)} / ${item.unit.toLowerCase()}',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  formatPaise(item.lineSubtotalPaise),
+                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _CartStepper(
+            qty: item.quantity,
+            onDec: () => _changeQty(item, item.quantity - 1),
+            onInc: () => _changeQty(item, item.quantity + 1),
           ),
         ],
       ),
@@ -541,6 +567,62 @@ class _EmptyCart extends StatelessWidget {
           const SizedBox(height: 12),
           const Text('Your cart is empty'),
         ],
+      ),
+    );
+  }
+}
+
+/// Accessible, finger-friendly quantity stepper for a cart line — bordered
+/// pill with 44dp hit areas, haptics and screen-reader labels.
+class _CartStepper extends StatelessWidget {
+  const _CartStepper({required this.qty, required this.onDec, required this.onInc});
+
+  final int qty;
+  final VoidCallback onDec;
+  final VoidCallback onInc;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.outline),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _btn(context, Icons.remove, qty <= 1 ? 'Remove item' : 'Decrease quantity', onDec),
+          SizedBox(
+            width: 28,
+            child: Text(
+              '$qty',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            ),
+          ),
+          _btn(context, Icons.add, 'Increase quantity', onInc),
+        ],
+      ),
+    );
+  }
+
+  Widget _btn(BuildContext context, IconData icon, String label, VoidCallback onTap) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkWell(
+        onTap: () {
+          Haptics.tap();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          alignment: Alignment.center,
+          child: Icon(icon, size: 18, color: scheme.primary),
+        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/formatters.dart';
+import '../../../shared/haptics.dart';
 import '../../../shared/widgets/product_thumb.dart';
 import '../../cart/presentation/cart_controller.dart';
 import '../../wishlist/presentation/wishlist_controller.dart';
@@ -173,27 +174,34 @@ class _WishlistHeart extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final saved = ref.watch(wishlistIdsProvider).valueOrNull?.contains(productId) ?? false;
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surface.withValues(alpha: 0.92),
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () async {
-          final messenger = ScaffoldMessenger.of(context);
-          try {
-            await ref.read(wishlistIdsProvider.notifier).toggle(productId);
-          } catch (e) {
-            messenger
-              ..hideCurrentSnackBar()
-              ..showSnackBar(SnackBar(content: Text(e.toString())));
-          }
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Icon(
-            saved ? Icons.favorite : Icons.favorite_border,
-            size: 18,
-            color: saved ? Colors.red : scheme.onSurfaceVariant,
+    return Semantics(
+      button: true,
+      label: saved ? 'Remove from wishlist' : 'Add to wishlist',
+      child: Material(
+        color: scheme.surface.withValues(alpha: 0.92),
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () async {
+            Haptics.tap();
+            final messenger = ScaffoldMessenger.of(context);
+            try {
+              await ref.read(wishlistIdsProvider.notifier).toggle(productId);
+            } catch (e) {
+              messenger
+                ..hideCurrentSnackBar()
+                ..showSnackBar(SnackBar(content: Text(e.toString())));
+            }
+          },
+          // Small glyph, but a finger-friendly 40dp hit area.
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            alignment: Alignment.center,
+            child: Icon(
+              saved ? Icons.favorite : Icons.favorite_border,
+              size: 18,
+              color: saved ? Colors.red : scheme.onSurfaceVariant,
+            ),
           ),
         ),
       ),
@@ -267,20 +275,40 @@ class _QtyControlState extends ConsumerState<_QtyControl> {
     }
   }
 
-  void _add() => _run(() => ref.read(cartControllerProvider.notifier).add(_p, _p.moqQty));
+  void _add() {
+    Haptics.success();
+    _run(() => ref.read(cartControllerProvider.notifier).add(_p, _p.moqQty));
+  }
 
-  void _inc(int qty) =>
-      _run(() => ref.read(cartControllerProvider.notifier).setQuantity(_p.id, qty + 1));
+  void _inc(int qty) {
+    // Preventive, not reactive: never let the shopper step past what's in stock.
+    if (qty >= _p.stockQty) {
+      Haptics.error();
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text('Only ${_p.stockQty} ${_p.unit.toLowerCase()}(s) in stock'),
+          duration: const Duration(seconds: 2),
+        ));
+      return;
+    }
+    Haptics.tap();
+    _run(() => ref.read(cartControllerProvider.notifier).setQuantity(_p.id, qty + 1));
+  }
 
-  void _dec(int qty) => _run(() {
-        // Stepping below the minimum order quantity removes the line.
-        final next = qty - 1 < _p.moqQty ? 0 : qty - 1;
-        return ref.read(cartControllerProvider.notifier).setQuantity(_p.id, next);
-      });
+  void _dec(int qty) {
+    Haptics.tap();
+    _run(() {
+      // Stepping below the minimum order quantity removes the line.
+      final next = qty - 1 < _p.moqQty ? 0 : qty - 1;
+      return ref.read(cartControllerProvider.notifier).setQuantity(_p.id, next);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final qty = ref.watch(cartQuantityProvider(_p.id));
+    final atMax = qty >= _p.stockQty;
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 160),
@@ -291,6 +319,7 @@ class _QtyControlState extends ConsumerState<_QtyControl> {
               key: const ValueKey('stepper'),
               qty: qty,
               busy: _busy,
+              atMax: atMax,
               onDec: () => _dec(qty),
               onInc: () => _inc(qty),
             ),
@@ -338,11 +367,13 @@ class _Stepper extends StatelessWidget {
     super.key,
     required this.qty,
     required this.busy,
+    required this.atMax,
     required this.onDec,
     required this.onInc,
   });
   final int qty;
   final bool busy;
+  final bool atMax;
   final VoidCallback onDec;
   final VoidCallback onInc;
 
@@ -357,7 +388,11 @@ class _Stepper extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _StepBtn(icon: Icons.remove, onTap: busy ? null : onDec),
+          _StepBtn(
+            icon: Icons.remove,
+            label: 'Decrease quantity',
+            onTap: busy ? null : onDec,
+          ),
           SizedBox(
             width: 24,
             child: Text(
@@ -366,7 +401,14 @@ class _Stepper extends StatelessWidget {
               style: TextStyle(color: scheme.onPrimary, fontWeight: FontWeight.w700, fontSize: 14),
             ),
           ),
-          _StepBtn(icon: Icons.add, onTap: busy ? null : onInc),
+          _StepBtn(
+            icon: Icons.add,
+            label: 'Increase quantity',
+            // Dim (not disabled) at max so the tap still fires the "only N in
+            // stock" feedback instead of doing nothing silently.
+            dimmed: atMax,
+            onTap: busy ? null : onInc,
+          ),
         ],
       ),
     );
@@ -374,19 +416,32 @@ class _Stepper extends StatelessWidget {
 }
 
 class _StepBtn extends StatelessWidget {
-  const _StepBtn({required this.icon, required this.onTap});
+  const _StepBtn({required this.icon, required this.label, required this.onTap, this.dimmed = false});
   final IconData icon;
+  final String label;
   final VoidCallback? onTap;
+  final bool dimmed;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
-        child: Icon(icon, size: 18, color: scheme.onPrimary),
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        // 44dp minimum touch target (WCAG 2.5.5 / Material) without inflating
+        // the visual size of the pill.
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          alignment: Alignment.center,
+          child: Icon(
+            icon,
+            size: 18,
+            color: scheme.onPrimary.withValues(alpha: dimmed ? 0.45 : 1),
+          ),
+        ),
       ),
     );
   }
