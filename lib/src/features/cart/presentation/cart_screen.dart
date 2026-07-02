@@ -5,6 +5,7 @@ import '../../../shared/formatters.dart';
 import '../../../shared/haptics.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/product_thumb.dart';
+import '../../../shared/widgets/quantity_sheet.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../addresses/presentation/address_controller.dart';
 import '../../addresses/presentation/add_address_screen.dart';
@@ -93,6 +94,19 @@ class _CartScreenState extends ConsumerState<CartScreen> {
           ),
         ));
     }
+  }
+
+  Future<void> _editLineQty(CartLine item) async {
+    final chosen = await showQuantitySheet(
+      context,
+      current: item.quantity,
+      moq: item.moqQty,
+      stock: item.stockQty,
+      unit: item.unit,
+      name: item.name,
+    );
+    if (chosen == null) return;
+    await _changeQty(item, chosen);
   }
 
   Future<void> _applyCoupon() async {
@@ -216,6 +230,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             qty: item.quantity,
             onDec: () => _changeQty(item, item.quantity - 1),
             onInc: () => _changeQty(item, item.quantity + 1),
+            onEdit: () => _editLineQty(item),
           ),
         ],
       ),
@@ -575,11 +590,17 @@ class _EmptyCart extends StatelessWidget {
 /// Accessible, finger-friendly quantity stepper for a cart line — bordered
 /// pill with 44dp hit areas, haptics and screen-reader labels.
 class _CartStepper extends StatelessWidget {
-  const _CartStepper({required this.qty, required this.onDec, required this.onInc});
+  const _CartStepper({
+    required this.qty,
+    required this.onDec,
+    required this.onInc,
+    required this.onEdit,
+  });
 
   final int qty;
   final VoidCallback onDec;
   final VoidCallback onInc;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -593,12 +614,20 @@ class _CartStepper extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           _btn(context, Icons.remove, qty <= 1 ? 'Remove item' : 'Decrease quantity', onDec),
-          SizedBox(
-            width: 28,
-            child: Text(
-              '$qty',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+          Semantics(
+            button: true,
+            label: 'Edit quantity, currently $qty',
+            child: InkWell(
+              onTap: onEdit,
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 34, minHeight: 44),
+                alignment: Alignment.center,
+                child: Text(
+                  '$qty',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                ),
+              ),
             ),
           ),
           _btn(context, Icons.add, 'Increase quantity', onInc),

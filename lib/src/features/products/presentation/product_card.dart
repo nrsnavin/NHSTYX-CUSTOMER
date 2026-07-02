@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/haptics.dart';
 import '../../../shared/widgets/product_thumb.dart';
+import '../../../shared/widgets/quantity_sheet.dart';
 import '../../cart/presentation/cart_controller.dart';
 import '../../wishlist/presentation/wishlist_controller.dart';
 import '../domain/product.dart';
@@ -305,6 +306,19 @@ class _QtyControlState extends ConsumerState<_QtyControl> {
     });
   }
 
+  Future<void> _editQty(int qty) async {
+    final chosen = await showQuantitySheet(
+      context,
+      current: qty,
+      moq: _p.moqQty,
+      stock: _p.stockQty,
+      unit: _p.unit,
+      name: _p.name,
+    );
+    if (chosen == null) return; // cancelled
+    _run(() => ref.read(cartControllerProvider.notifier).setQuantity(_p.id, chosen));
+  }
+
   @override
   Widget build(BuildContext context) {
     final qty = ref.watch(cartQuantityProvider(_p.id));
@@ -322,6 +336,7 @@ class _QtyControlState extends ConsumerState<_QtyControl> {
               atMax: atMax,
               onDec: () => _dec(qty),
               onInc: () => _inc(qty),
+              onEdit: () => _editQty(qty),
             ),
     );
   }
@@ -370,12 +385,14 @@ class _Stepper extends StatelessWidget {
     required this.atMax,
     required this.onDec,
     required this.onInc,
+    required this.onEdit,
   });
   final int qty;
   final bool busy;
   final bool atMax;
   final VoidCallback onDec;
   final VoidCallback onInc;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -393,12 +410,22 @@ class _Stepper extends StatelessWidget {
             label: 'Decrease quantity',
             onTap: busy ? null : onDec,
           ),
-          SizedBox(
-            width: 24,
-            child: Text(
-              '$qty',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: scheme.onPrimary, fontWeight: FontWeight.w700, fontSize: 14),
+          // Tap the number to type a bulk quantity directly (B2B shoppers order
+          // in dozens/hundreds — stepping one at a time isn't viable).
+          Semantics(
+            button: true,
+            label: 'Edit quantity, currently $qty',
+            child: InkWell(
+              onTap: busy ? null : onEdit,
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 30, minHeight: 44),
+                alignment: Alignment.center,
+                child: Text(
+                  '$qty',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: scheme.onPrimary, fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+              ),
             ),
           ),
           _StepBtn(
