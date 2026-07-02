@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/haptics.dart';
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/product_thumb.dart';
 import '../../../shared/widgets/quantity_sheet.dart';
 import '../../../shared/widgets/skeleton.dart';
@@ -11,6 +12,7 @@ import '../../addresses/presentation/address_controller.dart';
 import '../../addresses/presentation/add_address_screen.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../coupons/data/coupon_repository.dart';
+import '../../home/presentation/home_screen.dart';
 import '../../orders/presentation/orders_controller.dart';
 import '../domain/cart.dart';
 import 'cart_controller.dart';
@@ -568,21 +570,18 @@ class _CouponField extends StatelessWidget {
   }
 }
 
-class _EmptyCart extends StatelessWidget {
+class _EmptyCart extends ConsumerWidget {
   const _EmptyCart();
 
   @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.shopping_cart_outlined,
-              size: 64, color: Theme.of(context).colorScheme.outline),
-          const SizedBox(height: 12),
-          const Text('Your cart is empty'),
-        ],
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return EmptyState(
+      icon: Icons.shopping_cart_outlined,
+      title: 'Your cart is empty',
+      message: 'Browse the catalogue and add products — your bulk order builds up here.',
+      actionLabel: 'Start shopping',
+      // Jump back to the Shop tab in the home shell.
+      onAction: () => ref.read(homeTabProvider.notifier).state = 0,
     );
   }
 }

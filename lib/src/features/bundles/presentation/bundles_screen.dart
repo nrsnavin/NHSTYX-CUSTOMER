@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/product_thumb.dart';
+import '../../../shared/widgets/skeleton.dart';
 import '../../cart/presentation/cart_controller.dart';
 import '../data/bundle_repository.dart';
 import '../domain/bundle.dart';
@@ -22,9 +24,14 @@ class BundlesScreen extends ConsumerWidget {
       body: AsyncValueView<List<Bundle>>(
         value: bundlesAsync,
         onRetry: () => ref.invalidate(bundlesProvider),
+        loading: () => const ListCardSkeleton(itemCount: 3, height: 180),
         data: (bundles) {
           if (bundles.isEmpty) {
-            return const Center(child: Text('No bundles available yet.'));
+            return const EmptyState(
+              icon: Icons.widgets_outlined,
+              title: 'No kits yet',
+              message: 'Curated bundles from your store will show up here — add them to your cart in one tap.',
+            );
           }
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(bundlesProvider),

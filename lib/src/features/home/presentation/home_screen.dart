@@ -48,9 +48,9 @@ class HomeScreen extends ConsumerWidget {
             label: 'Categories',
           ),
           const NavigationDestination(
-            icon: Icon(Icons.replay_outlined),
-            selectedIcon: Icon(Icons.replay),
-            label: 'Reorder',
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
+            label: 'Orders',
           ),
           NavigationDestination(
             icon: Badge.count(

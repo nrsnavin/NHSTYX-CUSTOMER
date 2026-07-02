@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/skeleton.dart';
 import '../data/notification_repository.dart';
 import '../domain/notification.dart';
 import 'notifications_controller.dart';
@@ -51,6 +52,7 @@ class NotificationsScreen extends ConsumerWidget {
       body: AsyncValueView<NotificationFeed>(
         value: async,
         onRetry: () => ref.invalidate(notificationsProvider),
+        loading: () => const ListCardSkeleton(itemCount: 6, height: 72),
         data: (feed) {
           if (feed.items.isEmpty) {
             return Center(

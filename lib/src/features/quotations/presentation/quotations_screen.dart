@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../shared/formatters.dart';
+import '../../../shared/widgets/skeleton.dart';
 import '../domain/quotation.dart';
 import 'quotation_detail_screen.dart';
 import 'quotations_controller.dart';
@@ -53,7 +54,7 @@ class QuotationsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('My Quotations')),
       body: quotes.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const ListCardSkeleton(itemCount: 4, height: 108),
         error: (e, _) => _ErrorState(message: e.toString(), onRetry: () => ref.invalidate(myQuotationsProvider)),
         data: (list) {
           if (list.isEmpty) {
