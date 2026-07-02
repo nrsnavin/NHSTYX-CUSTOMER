@@ -36,6 +36,21 @@ class _FakeProductRepo implements ProductRepository {
   }
 
   @override
+  Future<ProductPage> fetchProductPage({
+    String? search,
+    String? categoryId,
+    String? sort,
+    String? brand,
+    int? minPricePaise,
+    int? maxPricePaise,
+    bool inStock = false,
+    int page = 1,
+    int limit = 40,
+  }) async {
+    return (items: await fetchProducts(), hasMore: false);
+  }
+
+  @override
   Future<List<Product>> fetchBestSelling() async => const [];
 
   @override

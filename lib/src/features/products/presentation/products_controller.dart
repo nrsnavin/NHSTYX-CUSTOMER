@@ -8,15 +8,80 @@ import '../domain/review.dart';
 /// Free-text filter typed on the Shop tab's inline search field.
 final productSearchProvider = StateProvider<String>((ref) => '');
 
-/// Product catalog, reactive to the selected category and search text.
-final productsProvider = FutureProvider.autoDispose<List<Product>>((ref) async {
-  final search = ref.watch(productSearchProvider);
-  final category = ref.watch(selectedCategoryProvider);
-  return ref.watch(productRepositoryProvider).fetchProducts(
-        search: search.isEmpty ? null : search,
-        categoryId: category?.id,
-      );
-});
+/// Accumulated catalog feed for the Shop tab: the products loaded so far plus
+/// whether more pages remain and whether a "load more" fetch is in flight.
+class ProductFeedState {
+  const ProductFeedState({
+    required this.products,
+    required this.hasMore,
+    this.loadingMore = false,
+  });
+
+  final List<Product> products;
+  final bool hasMore;
+  final bool loadingMore;
+
+  ProductFeedState copyWith({List<Product>? products, bool? hasMore, bool? loadingMore}) {
+    return ProductFeedState(
+      products: products ?? this.products,
+      hasMore: hasMore ?? this.hasMore,
+      loadingMore: loadingMore ?? this.loadingMore,
+    );
+  }
+}
+
+/// Paginating product catalog, reactive to the selected category and search
+/// text. The first page loads on build; [loadMore] appends the next page as
+/// the shopper scrolls, giving the wholesale catalog true infinite scroll.
+class ProductFeedNotifier extends AutoDisposeAsyncNotifier<ProductFeedState> {
+  static const _pageSize = 24;
+  int _page = 1;
+
+  @override
+  Future<ProductFeedState> build() async {
+    final search = ref.watch(productSearchProvider);
+    final category = ref.watch(selectedCategoryProvider);
+    _page = 1;
+    final result = await ref.watch(productRepositoryProvider).fetchProductPage(
+          search: search.isEmpty ? null : search,
+          categoryId: category?.id,
+          page: 1,
+          limit: _pageSize,
+        );
+    return ProductFeedState(products: result.items, hasMore: result.hasMore);
+  }
+
+  /// Fetch and append the next page. No-ops while a load is already running,
+  /// or once the catalog is exhausted.
+  Future<void> loadMore() async {
+    final current = state.valueOrNull;
+    if (current == null || !current.hasMore || current.loadingMore) return;
+
+    state = AsyncData(current.copyWith(loadingMore: true));
+    final search = ref.read(productSearchProvider);
+    final category = ref.read(selectedCategoryProvider);
+    try {
+      final result = await ref.read(productRepositoryProvider).fetchProductPage(
+            search: search.isEmpty ? null : search,
+            categoryId: category?.id,
+            page: _page + 1,
+            limit: _pageSize,
+          );
+      _page += 1;
+      state = AsyncData(ProductFeedState(
+        products: [...current.products, ...result.items],
+        hasMore: result.hasMore,
+      ));
+    } catch (_) {
+      // Keep what we have and drop the spinner; the shopper can scroll to retry.
+      state = AsyncData(current.copyWith(loadingMore: false));
+    }
+  }
+}
+
+final productsProvider =
+    AsyncNotifierProvider.autoDispose<ProductFeedNotifier, ProductFeedState>(
+        ProductFeedNotifier.new);
 
 /// Full detail for a single product (incl. its store variants) — backs the
 /// product-detail page's variant selector.

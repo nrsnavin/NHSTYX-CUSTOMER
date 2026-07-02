@@ -10,6 +10,7 @@ import '../../home/presentation/home_screen.dart';
 import '../../products/presentation/product_card.dart';
 import '../../products/presentation/product_detail_screen.dart';
 import '../../products/presentation/products_controller.dart';
+import 'recent_searches_controller.dart';
 import 'search_controller.dart';
 
 const _examples = [
@@ -90,7 +91,7 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
   void _onSpeechResult(SpeechRecognitionResult result) {
     setState(() => _controller.text = result.recognizedWords);
     if (result.finalResult && result.recognizedWords.trim().isNotEmpty) {
-      ref.read(searchControllerProvider.notifier).run(result.recognizedWords.trim());
+      _runQuery(result.recognizedWords.trim());
     }
   }
 
@@ -102,10 +103,15 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
     super.dispose();
   }
 
-  void _search(String q) {
-    _controller.text = q;
+  /// Single entry point for running a query: mirrors it into the field,
+  /// dismisses the keyboard, remembers it, and kicks off the search.
+  void _runQuery(String q) {
+    final trimmed = q.trim();
+    if (trimmed.isEmpty) return;
+    if (_controller.text != trimmed) _controller.text = trimmed;
     _focus.unfocus();
-    ref.read(searchControllerProvider.notifier).run(q);
+    ref.read(recentSearchesProvider.notifier).add(trimmed);
+    ref.read(searchControllerProvider.notifier).run(trimmed);
   }
 
   /// Picking a matched category filters the Home tab by it and returns there.
@@ -129,7 +135,7 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
           focusNode: _focus,
           autofocus: true,
           textInputAction: TextInputAction.search,
-          onSubmitted: (q) => ref.read(searchControllerProvider.notifier).run(q),
+          onSubmitted: _runQuery,
           decoration: InputDecoration(
             hintText: 'Search anything for your store…',
             prefixIcon: const Icon(Icons.auto_awesome, size: 20),
@@ -157,7 +163,7 @@ class _AiSearchScreenState extends ConsumerState<AiSearchScreen> {
         loading: () => const ProductGridSkeleton(),
         error: (e, _) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(e.toString()))),
         data: (result) {
-          if (result == null) return _Suggestions(onTap: _search);
+          if (result == null) return _Suggestions(onTap: _runQuery);
           final hasCategories = result.categories.isNotEmpty;
           if (result.items.isEmpty && !hasCategories) {
             return _Empty(reply: result.reply);
@@ -256,16 +262,44 @@ class _CategoryChips extends StatelessWidget {
   }
 }
 
-class _Suggestions extends StatelessWidget {
+class _Suggestions extends ConsumerWidget {
   const _Suggestions({required this.onTap});
   final void Function(String) onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final recents = ref.watch(recentSearchesProvider);
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        if (recents.isNotEmpty) ...[
+          Row(
+            children: [
+              Icon(Icons.history, size: 18, color: theme.hintColor),
+              const SizedBox(width: 6),
+              Text('Recent', style: theme.textTheme.titleSmall?.copyWith(color: theme.hintColor)),
+              const Spacer(),
+              TextButton(
+                onPressed: () => ref.read(recentSearchesProvider.notifier).clear(),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('Clear'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          for (final q in recents)
+            _RecentTile(
+              query: q,
+              onTap: () => onTap(q),
+              onRemove: () => ref.read(recentSearchesProvider.notifier).remove(q),
+            ),
+          const SizedBox(height: 20),
+        ],
         Text('Try asking for…', style: theme.textTheme.titleSmall?.copyWith(color: theme.hintColor)),
         const SizedBox(height: 12),
         Wrap(
@@ -279,6 +313,45 @@ class _Suggestions extends StatelessWidget {
               .toList(),
         ),
       ],
+    );
+  }
+}
+
+/// A single recent-search row: tap the text to re-run it, or the ✕ to forget.
+class _RecentTile extends StatelessWidget {
+  const _RecentTile({required this.query, required this.onTap, required this.onRemove});
+  final String query;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Icon(Icons.north_west, size: 16, color: theme.hintColor),
+            const SizedBox(width: 12),
+            Expanded(child: Text(query, style: theme.textTheme.bodyLarge)),
+            InkResponse(
+              onTap: onRemove,
+              radius: 22,
+              child: Semantics(
+                button: true,
+                label: 'Remove $query from recent searches',
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(Icons.close, size: 18, color: theme.hintColor),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

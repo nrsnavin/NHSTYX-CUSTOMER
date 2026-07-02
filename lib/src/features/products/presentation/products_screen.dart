@@ -92,7 +92,8 @@ class ProductsScreen extends ConsumerWidget {
 
 /// The shop's scrolling feed. On the unfiltered home it leads with the
 /// best-selling and recently-ordered rails; once a category or search is
-/// active it shows just the matching grid.
+/// active it shows just the matching grid. The catalog grid pages in more
+/// products as the shopper nears the bottom (infinite scroll).
 class _ShopFeed extends ConsumerWidget {
   const _ShopFeed();
 
@@ -110,71 +111,119 @@ class _ShopFeed extends ConsumerWidget {
         ref.invalidate(bestSellingProvider);
         ref.invalidate(recentlyOrderedProvider);
       },
-      child: CustomScrollView(
-        slivers: [
-          if (!filtering) ...[
-            const SliverToBoxAdapter(child: _BulkOrderBanner()),
-            _ProductRailSliver(
-              title: (city == null || city.isEmpty) ? 'Best selling' : 'Best selling in $city',
-              icon: Icons.local_fire_department_outlined,
-              provider: bestSellingProvider,
-            ),
-            _ProductRailSliver(
-              title: 'Recently ordered',
-              icon: Icons.history,
-              provider: recentlyOrderedProvider,
-            ),
-            const _SectionHeaderSliver(title: 'All products'),
-          ],
-          ...productsAsync.when(
-            loading: () => const [SliverFillRemaining(child: ProductGridSkeleton())],
-            error: (e, _) => [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Center(child: Text(e.toString())),
-                ),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          // Pre-fetch the next page as the shopper nears the end of the list.
+          if (notification.metrics.axis == Axis.vertical &&
+              notification.metrics.pixels >=
+                  notification.metrics.maxScrollExtent - 600) {
+            ref.read(productsProvider.notifier).loadMore();
+          }
+          return false;
+        },
+        child: CustomScrollView(
+          slivers: [
+            if (!filtering) ...[
+              const SliverToBoxAdapter(child: _BulkOrderBanner()),
+              _ProductRailSliver(
+                title: (city == null || city.isEmpty) ? 'Best selling' : 'Best selling in $city',
+                icon: Icons.local_fire_department_outlined,
+                provider: bestSellingProvider,
               ),
+              _ProductRailSliver(
+                title: 'Recently ordered',
+                icon: Icons.history,
+                provider: recentlyOrderedProvider,
+              ),
+              const _SectionHeaderSliver(title: 'All products'),
             ],
-            data: (products) {
-              if (products.isEmpty) {
-                return [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _EmptyCatalog(hasStore: store != null),
-                  ),
-                ];
-              }
-              return [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  sliver: SliverGrid(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 14,
-                      crossAxisSpacing: 14,
-                      childAspectRatio: 0.62,
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                      (context, i) {
-                        final p = products[i];
-                        return ProductCard(
-                          product: p,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
-                          ),
-                        );
-                      },
-                      childCount: products.length,
-                    ),
+            ...productsAsync.when(
+              loading: () => const [SliverFillRemaining(child: ProductGridSkeleton())],
+              error: (e, _) => [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Center(child: Text(e.toString())),
                   ),
                 ),
-              ];
-            },
-          ),
-        ],
+              ],
+              data: (feed) {
+                if (feed.products.isEmpty) {
+                  return [
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _EmptyCatalog(hasStore: store != null),
+                    ),
+                  ];
+                }
+                return [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                    sliver: SliverGrid(
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 14,
+                        crossAxisSpacing: 14,
+                        childAspectRatio: 0.62,
+                      ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, i) {
+                          final p = feed.products[i];
+                          return ProductCard(
+                            product: p,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => ProductDetailScreen(product: p)),
+                            ),
+                          );
+                        },
+                        childCount: feed.products.length,
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(child: _LoadMoreFooter(feed: feed)),
+                ];
+              },
+            ),
+          ],
+        ),
       ),
     );
+  }
+}
+
+/// Bottom-of-feed status: a spinner while the next page loads, or a subtle
+/// "You're all caught up" once the whole catalog has been seen.
+class _LoadMoreFooter extends StatelessWidget {
+  const _LoadMoreFooter({required this.feed});
+  final ProductFeedState feed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (feed.loadingMore) {
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(16, 4, 16, 28),
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.4),
+          ),
+        ),
+      );
+    }
+    if (!feed.hasMore && feed.products.length > 8) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        child: Center(
+          child: Text(
+            "That's everything in stock",
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+          ),
+        ),
+      );
+    }
+    return const SizedBox(height: 16);
   }
 }
 

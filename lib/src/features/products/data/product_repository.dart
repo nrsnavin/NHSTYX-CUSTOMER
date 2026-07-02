@@ -6,12 +6,43 @@ import '../../../core/network/dio_client.dart';
 import '../domain/product.dart';
 import '../domain/review.dart';
 
+/// One page of catalog results plus whether another page exists — lets the
+/// Shop feed do infinite-scroll without guessing when to stop.
+typedef ProductPage = ({List<Product> items, bool hasMore});
+
 class ProductRepository {
   ProductRepository(this._dio);
 
   final Dio _dio;
 
   Future<List<Product>> fetchProducts({
+    String? search,
+    String? categoryId,
+    String? sort,
+    String? brand,
+    int? minPricePaise,
+    int? maxPricePaise,
+    bool inStock = false,
+    int page = 1,
+    int limit = 40,
+  }) async {
+    final result = await fetchProductPage(
+      search: search,
+      categoryId: categoryId,
+      sort: sort,
+      brand: brand,
+      minPricePaise: minPricePaise,
+      maxPricePaise: maxPricePaise,
+      inStock: inStock,
+      page: page,
+      limit: limit,
+    );
+    return result.items;
+  }
+
+  /// Like [fetchProducts] but keeps the pagination metadata so callers can
+  /// page through the full catalog.
+  Future<ProductPage> fetchProductPage({
     String? search,
     String? categoryId,
     String? sort,
@@ -37,8 +68,12 @@ class ProductRepository {
           if (inStock) 'inStock': 'true',
         },
       );
-      final items = response.data!['items'] as List<dynamic>;
-      return items.map((e) => Product.fromJson(e as Map<String, dynamic>)).toList();
+      final items = (response.data!['items'] as List<dynamic>)
+          .map((e) => Product.fromJson(e as Map<String, dynamic>))
+          .toList();
+      final pagination = response.data!['pagination'] as Map<String, dynamic>?;
+      final totalPages = (pagination?['totalPages'] as num?)?.toInt() ?? page;
+      return (items: items, hasMore: page < totalPages);
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     }
