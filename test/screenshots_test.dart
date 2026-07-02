@@ -11,6 +11,7 @@ import 'package:nhstyx_customer/src/features/categories/data/category_repository
 import 'package:nhstyx_customer/src/features/categories/domain/category.dart';
 import 'package:nhstyx_customer/src/features/products/data/product_repository.dart';
 import 'package:nhstyx_customer/src/features/products/domain/product.dart';
+import 'package:nhstyx_customer/src/features/products/domain/review.dart';
 import 'package:nhstyx_customer/src/features/products/presentation/products_screen.dart';
 import 'package:nhstyx_customer/src/features/orders/domain/order.dart';
 import 'package:nhstyx_customer/src/features/orders/presentation/orders_controller.dart';
@@ -44,15 +45,34 @@ List<Product> _catalog() => const [
 
 class _FakeProductRepo implements ProductRepository {
   @override
-  Future<List<Product>> fetchProducts({String? search, String? categoryId, int page = 1, int limit = 40}) async =>
+  Future<List<Product>> fetchProducts({
+    String? search,
+    String? categoryId,
+    String? sort,
+    String? brand,
+    int? minPricePaise,
+    int? maxPricePaise,
+    bool inStock = false,
+    int page = 1,
+    int limit = 40,
+  }) async =>
       _catalog();
   @override
   Future<List<Product>> fetchBestSelling() async => _catalog().take(3).toList();
   @override
   Future<List<Product>> fetchRecentlyOrdered() async => const [];
   @override
+  Future<List<String>> fetchBrands() async => const [];
+  @override
   Future<Product> fetchProduct(String id) async =>
       _catalog().firstWhere((p) => p.id == id, orElse: () => _catalog().first);
+  @override
+  Future<ReviewSummary> fetchReviews(String productId) async =>
+      const ReviewSummary(avg: 0, count: 0, items: []);
+  @override
+  Future<({int rating, String? comment})?> fetchMyReview(String productId) async => null;
+  @override
+  Future<void> submitReview(String productId, {required int rating, String? comment}) async {}
 }
 
 class _FakeCategoryRepo implements CategoryRepository {
