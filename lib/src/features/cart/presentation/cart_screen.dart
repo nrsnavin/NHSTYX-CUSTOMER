@@ -13,6 +13,7 @@ import '../../addresses/presentation/add_address_screen.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../coupons/data/coupon_repository.dart';
 import '../../home/presentation/home_screen.dart';
+import '../../orders/presentation/order_confirmation_screen.dart';
 import '../../orders/presentation/orders_controller.dart';
 import '../domain/cart.dart';
 import 'cart_controller.dart';
@@ -145,10 +146,10 @@ class _CartScreenState extends ConsumerState<CartScreen> {
       }
       final order = next.valueOrNull;
       if (order != null && !next.isLoading) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-              SnackBar(content: Text('Order ${order.orderNumber} placed!')));
+        // Peak-of-funnel moment: a full confirmation screen, not a snackbar.
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => OrderConfirmationScreen(order: order)),
+        );
       }
     });
 

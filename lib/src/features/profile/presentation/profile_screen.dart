@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../shared/widgets/skeleton.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../home/presentation/home_screen.dart';
 import '../../quotations/presentation/quotations_screen.dart';
@@ -21,7 +22,7 @@ class ProfileScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Account')),
       body: customer == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const DetailSkeleton(rows: 6)
           : ListView(
               padding: const EdgeInsets.symmetric(vertical: 12),
               children: [

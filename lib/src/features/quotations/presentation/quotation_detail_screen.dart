@@ -7,6 +7,8 @@ import 'package:printing/printing.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../shared/formatters.dart';
+import '../../../shared/widgets/document_loading_view.dart';
+import '../../../shared/widgets/skeleton.dart';
 import '../data/quotation_repository.dart';
 import '../domain/quotation.dart';
 import 'quotations_controller.dart';
@@ -67,7 +69,7 @@ class _QuotationDetailScreenState extends ConsumerState<QuotationDetailScreen> {
         ],
       ),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const DetailSkeleton(rows: 5),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -226,7 +228,7 @@ class _QuotationPdfScreen extends ConsumerWidget {
         future: ref.read(quotationRepositoryProvider).fetchPdf(quotationId),
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const DocumentLoadingView(label: 'Preparing your quote…');
           }
           if (snap.hasError) {
             return Center(

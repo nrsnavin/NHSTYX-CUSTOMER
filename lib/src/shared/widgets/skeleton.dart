@@ -142,6 +142,41 @@ class _CardSkeleton extends StatelessWidget {
   }
 }
 
+/// A generic detail-screen placeholder: a title + subtitle header followed by
+/// stacked label/value rows. Reads as "the page is loading" far better than a
+/// spinner floating on a blank screen (quotation / profile loading states).
+class DetailSkeleton extends StatelessWidget {
+  const DetailSkeleton({super.key, this.rows = 6});
+
+  final int rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer(
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          const SkeletonBox(height: 22, width: 190),
+          const SizedBox(height: 10),
+          const SkeletonBox(height: 14, width: 130),
+          const SizedBox(height: 28),
+          for (var i = 0; i < rows; i++) ...[
+            const Row(
+              children: [
+                Expanded(child: SkeletonBox(height: 14)),
+                SizedBox(width: 40),
+                SkeletonBox(height: 14, width: 56),
+              ],
+            ),
+            const SizedBox(height: 18),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// Vertical list of card skeletons (Orders / Cart loading state).
 class ListCardSkeleton extends StatelessWidget {
   const ListCardSkeleton({super.key, this.itemCount = 4, this.height = 96});

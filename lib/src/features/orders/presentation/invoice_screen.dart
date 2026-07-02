@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
 
+import '../../../shared/widgets/document_loading_view.dart';
 import '../data/order_repository.dart';
 import '../domain/order.dart';
 
@@ -22,7 +23,7 @@ class InvoiceScreen extends ConsumerWidget {
         future: ref.read(orderRepositoryProvider).fetchInvoice(order.id),
         builder: (context, snap) {
           if (snap.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
+            return const DocumentLoadingView(label: 'Preparing your invoice…');
           }
           if (snap.hasError) {
             return Center(
